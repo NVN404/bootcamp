@@ -21,8 +21,6 @@ function App() {
         <Route path="/reminder" element={<Reminder />} /> 
         <Route path='/report' element={<Report />} />
       </Routes>
-      {/* <Login />
-      <Signup /> */}
     </BrowserRouter>
   );
 }

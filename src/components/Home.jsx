@@ -1,5 +1,7 @@
 import React from "react";
 import Footer from './Footer';
+import { Link } from 'react-router-dom';
+
 
 const Home = () => {
   return (
@@ -21,9 +23,12 @@ const Home = () => {
             Medication Cloud connects patients, care teams, and enterprises to
             maximize the value of medications.
           </p>
-          <button className="bg-brightRed hover:bg-blue-700 text-grey font-semibold py-3 px-6 rounded-full transition duration-300">
-            get started
-          </button>
+          <Link
+                    to='/get-started'
+                    className='w-24 hidden p-3 px-6 pt-2 text-white bg-brightRed rounded-full baseline hover:bg-brightRedLight md:block'
+                  >
+                    Get Started
+                  </Link>
         </div>
 
         {/* Right Section - Image and Info Panel */}
