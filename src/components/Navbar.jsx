@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import companyLogo from '../assets/images/logo.svg';
-
+import Home from './Home';
 const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);
 
@@ -16,25 +16,25 @@ const Navbar = () => {
         </div>
         {/* Menu Items */}
         <div className='hidden space-x-6 md:flex'>
-          <Link to='#' className='hover:text-darkGrayishBlue'>
+        <Link to='/' className='hover:text-darkGrayishBlue'>
+            Home
+          </Link>
+          <Link to='/reminder' className='hover:text-darkGrayishBlue'>
             Reminder
           </Link>
-          <Link to='#' className='hover:text-darkGrayishBlue'>
+          <Link to='/report' className='hover:text-darkGrayishBlue'>
             Reports
           </Link>
-          <Link to='#' className='hover:text-darkGrayishBlue'>
-            Specialist
+          <Link to='/specialist' className='hover:text-darkGrayishBlue'>
+            Specialists
           </Link>
-          <Link to='#' className='hover:text-darkGrayishBlue'>
+          <Link to='/about-us' className='hover:text-darkGrayishBlue'>
             About Us
-          </Link>
-          <Link to='#' className='hover:text-darkGrayishBlue'>
-            Community
           </Link>
         </div>
         {/* Button */}
         <Link
-          to='#'
+          to='/get-started'
           className='hidden p-3 px-6 pt-2 text-white bg-brightRed rounded-full baseline hover:bg-brightRedLight md:block'
         >
           Get Started
@@ -64,11 +64,12 @@ const Navbar = () => {
               : 'absolute flex-col items-center hidden self-end py-8 mt-10 space-y-6 font-bold bg-white sm:w-auto sm:self-center left-6 right-6 drop-shadow-md'
           }
         >
-          <Link to='#'>Reminder</Link>
-          <Link to='#'>Reports</Link>
-          <Link to='#'>Specialist</Link>
-          <Link to='#'>About Us</Link>
-          <Link to='#'>Community</Link>
+          <Link to='/'>Home</Link>
+          <Link to='/reminder'>Reminder</Link>
+          <Link to='/report'>Reports</Link>
+          <Link to='/specialist'>Specialists</Link>
+          <Link to='/about-us'>About Us</Link>
+          
         </div>
       </div>
     </nav>

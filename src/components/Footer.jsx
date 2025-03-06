@@ -18,11 +18,11 @@ const Footer = () => {
             Copyright © 2022, All Rights Reserved
           </div>
           {/* Logo */}
-          <div>
+          {/* <div>
             <img src={companyLogoWhite} className='h-8' alt='' />
-          </div>
+          </div> */}
           {/* Social Links Container */}
-          <div className='flex justify-center space-x-4'>
+          <div className='flex justify-center space-x-4 '>
             {/* Link 1 */}
             <Link to='#'>
               <img src={facebookLogo} className='h-8' alt='' />
@@ -48,25 +48,22 @@ const Footer = () => {
         {/* List Container */}
         <div className='flex justify-around space-x-32'>
           <div className='flex flex-col space-y-3 text-white'>
-            <Link to='#' className='hover:text-brightRed'>
+            <Link to='/' className='hover:text-brightRed'>
               Home
             </Link>
-            <Link to='#' className='hover:text-brightRed'>
-              Remider
+            <Link to='/reminder' className='hover:text-brightRed'>
+              Reminder
             </Link>
-            <Link to='#' className='hover:text-brightRed'>
+            <Link to='/report' className='hover:text-brightRed'>
               Reports
             </Link>
-            <Link to='#' className='hover:text-brightRed'>
-            Specialist
+            <Link to='/specialist' className='hover:text-brightRed'>
+            Specialists
             </Link>
           </div>
           <div className='flex flex-col space-y-3 text-white'>
-            <Link to='#' className='hover:text-brightRed'>
+            <Link to='/about-us' className='hover:text-brightRed'>
             About
-            </Link>
-            <Link to='#' className='hover:text-brightRed'>
-              Community
             </Link>
             <Link to='#' className='hover:text-brightRed'>
               Privacy Policy
@@ -89,7 +86,7 @@ const Footer = () => {
             </div>
           </form>
           <div className='hidden text-white md:block'>
-            Copyright © 2022, All Rights Reserved
+            Copyright © 2025, All Rights Reserved
           </div>
         </div>
       </div>
