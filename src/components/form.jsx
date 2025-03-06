@@ -11,6 +11,45 @@ export default function Form({ setUser, setAuthState }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  
+  function handleSubmitButton(e) {
+    e.preventDefault();
+
+    console.log(email, password);
+    fetch("http://localhost:5000/login-user", {
+      method: "POST",
+      crossDomain: true,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log(data, "userRegister");
+        if (data.status == "ok") {
+          console.log(data.userType);
+          alert("login successful");
+          window.localStorage.setItem("token", data.data);
+          window.localStorage.setItem("userType", data.userType);
+          window.localStorage.setItem("loggedIn", true);
+          
+          if (data.userType == "Admin") {
+            
+            return (window.location.href = "./admin-dashboard");
+          } else {
+            window.location.href = "./userDetails";
+          }
+        }
+      });
+  }
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -55,7 +94,7 @@ export default function Form({ setUser, setAuthState }) {
         </p>
         {error && <p className="text-red-500 mt-4">{error}</p>}
         {success && <p className="text-green-500 mt-4">{success}</p>}
-        <form onSubmit={handleSubmit} className="mt-8">
+        <form onSubmit={handleSubmit,handleSubmitButton} className="mt-8">
           <div className="flex flex-col">
             <label className="text-lg font-medium">Email</label>
             <input
