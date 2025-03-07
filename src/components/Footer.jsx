@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import companyLogoWhite from '../assets/images/logo-white.svg';
+import companyLogoWhite from '../assets/images/logo-med.jpeg';
 import facebookLogo from '../assets/images/icon-facebook.svg';
 import youtubeLogo from '../assets/images/icon-youtube.svg';
 import twitterLogo from '../assets/images/icon-twitter.svg';

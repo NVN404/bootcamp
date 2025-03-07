@@ -34,7 +34,7 @@ export default function Form() { // No props needed
         setSuccess('Login successful!');
         console.log('localStorage after login:', window.localStorage.getItem('loggedIn'));
 
-        navigate('/specialist');
+        navigate('/');
       } else {
         console.log('Signup attempt:', { email, password });
         const response = await axios.post('http://localhost:5000/api/auth/signup', {
@@ -57,7 +57,7 @@ export default function Form() { // No props needed
 
   return (
     <div>
-      <div className="mx-60 w-11/12 max-w-[700px] px-20 py-20 rounded-3xl border-2 border-brightRed bb-10">
+      <div className="mx-60 w-11/12 max-w-[700px] px-20 py-20 rounded-3xl border-2 border-brightRed bb-10 mb-12">
         <h1 className="text-5xl font-semibold">
           {isLogin ? 'Welcome Back' : 'Create an Account'}
         </h1>
