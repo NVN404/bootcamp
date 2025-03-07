@@ -4,7 +4,7 @@ import axios from 'axios';
 import Footer from './Footer';
 import { useNavigate } from 'react-router-dom';
 
-export default function Form({ setUser, setAuthState }) {
+export default function Form() { // No props needed
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,14 +25,12 @@ export default function Form({ setUser, setAuthState }) {
           password,
         });
         console.log('Login response:', response.data);
-        const { user } = response.data;
+        const { user } = response.data; // No token since JWT is removed
 
-        // Set localStorage without token
         window.localStorage.setItem('loggedIn', 'true');
-        window.localStorage.setItem('userType', 'User'); // Hardcoded since not in schema
+        window.localStorage.setItem('userType', 'User'); // Hardcoded
+        // Removed setUser(user) and setAuthState('loggedIn')
 
-        setUser(user);
-        setAuthState('loggedIn');
         setSuccess('Login successful!');
         console.log('localStorage after login:', window.localStorage.getItem('loggedIn'));
 

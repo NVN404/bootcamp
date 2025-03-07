@@ -4,21 +4,23 @@ import companyLogo from '../assets/images/logo.svg';
 
 const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(window.localStorage.getItem('loggedIn') === 'true');
   const navigate = useNavigate();
 
+  // Check localStorage on every render instead of relying on storage event
+  const isLoggedIn = window.localStorage.getItem('loggedIn') === 'true';
+
+  // Optional: Keep useEffect for cross-tab updates if needed
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(window.localStorage.getItem('loggedIn') === 'true');
+      // No need to set state here if isLoggedIn is computed on render
+      console.log('localStorage changed in another tab:', window.localStorage.getItem('loggedIn'));
     };
-    checkLoginStatus();
     window.addEventListener('storage', checkLoginStatus);
     return () => window.removeEventListener('storage', checkLoginStatus);
   }, []);
 
   const handleLogout = () => {
     window.localStorage.clear();
-    setIsLoggedIn(false);
     navigate('/get-started');
   };
 
