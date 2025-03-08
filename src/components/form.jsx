@@ -4,7 +4,7 @@ import axios from 'axios';
 import Footer from './Footer';
 import { useNavigate } from 'react-router-dom';
 
-export default function Form() { // No props needed
+export default function Form() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,16 +25,17 @@ export default function Form() { // No props needed
           password,
         });
         console.log('Login response:', response.data);
-        const { user } = response.data; // No token since JWT is removed
+        const { user } = response.data;
 
+        // Store userId and other data in localStorage
         window.localStorage.setItem('loggedIn', 'true');
-        window.localStorage.setItem('userType', 'User'); // Hardcoded
-        // Removed setUser(user) and setAuthState('loggedIn')
+        window.localStorage.setItem('userType', 'User');
+        window.localStorage.setItem('userId', user.id); // Store userId
 
         setSuccess('Login successful!');
-        console.log('localStorage after login:', window.localStorage.getItem('loggedIn'));
+        console.log('localStorage after login:', window.localStorage.getItem('userId'));
 
-        navigate('/specialist');
+        navigate('/report'); // Navigate to report page
       } else {
         console.log('Signup attempt:', { email, password });
         const response = await axios.post('http://localhost:5000/api/auth/signup', {
@@ -42,11 +43,19 @@ export default function Form() { // No props needed
           password,
         });
         console.log('Signup response:', response.data);
-        setSuccess(response.data.message);
-        setIsLogin(true);
+        const { user } = response.data;
+
+        // Store userId in localStorage after signup
+        window.localStorage.setItem('loggedIn', 'true');
+        window.localStorage.setItem('userType', 'User');
+        window.localStorage.setItem('userId', user.id);
+
+        setSuccess(`Signup successful! User ID: ${user.id}`);
+        setIsLogin(true); // Switch to login mode
+        navigate('/report'); // Navigate to report page
       }
     } catch (err) {
-      console.error('Login error:', {
+      console.error('Error:', {
         status: err.response?.status,
         data: err.response?.data,
         message: err.message,
@@ -57,7 +66,7 @@ export default function Form() { // No props needed
 
   return (
     <div>
-      <div className="mx-60 w-11/12 max-w-[700px] px-20 py-20 rounded-3xl border-2 border-brightRed bb-10">
+      <div className="mx-60 w-11/12 max-w-[700px] px-20 py-20 rounded-3xl border-2 border-brightRed bb-10 ml-50">
         <h1 className="text-5xl font-semibold">
           {isLogin ? 'Welcome Back' : 'Create an Account'}
         </h1>

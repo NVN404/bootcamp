@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import companyLogo from '../assets/images/logo.svg';
+import companyLogo from '../assets/images/logo2-removebg-preview (1).png';
 
 const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);

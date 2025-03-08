@@ -19,7 +19,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/specialist" element={<Specialist />} />
           <Route path="/reminder" element={<Reminder />} />
-          <Route path="/report" element={<Report />} />
+          <Route path="/report" element={<Report userId={window.localStorage.getItem('userId')} />} />
         </Route>
       </Routes>
     </BrowserRouter>

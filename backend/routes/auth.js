@@ -1,10 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
+const { User, Patient } = require('../models/user');
 
 const router = express.Router();
 
-// Signup Route
+// Signup Route (No seeding)
 router.post('/signup', async (req, res) => {
   const { email, password } = req.body;
 
@@ -18,14 +18,17 @@ router.post('/signup', async (req, res) => {
     const user = new User({ email, password: hashedPassword });
     await user.save();
 
-    res.status(201).json({ message: 'Signup successful' });
+    res.status(201).json({
+      message: 'Signup successful',
+      user: { id: user._id, email: user.email }, // Return userId
+    });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Login Route (No JWT)
+// Login Route
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -42,10 +45,21 @@ router.post('/login', async (req, res) => {
 
     res.status(200).json({
       message: 'Successfully logged in',
-      user: { email: user.email },
+      user: { email: user.email, id: user._id },
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Patient Data Route
+router.get('/patients/:userId', async (req, res) => {
+  try {
+    const patients = await Patient.find({ userId: req.params.userId });
+    res.json(patients);
+  } catch (error) {
+    console.error('Patient data error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
