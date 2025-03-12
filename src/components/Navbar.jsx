@@ -6,13 +6,13 @@ const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);
   const navigate = useNavigate();
 
-  // Check localStorage on every render instead of relying on storage event
+  // Check login status and userType from localStorage on every render
   const isLoggedIn = window.localStorage.getItem('loggedIn') === 'true';
+  const userType = window.localStorage.getItem('userType');
+  const userId = window.localStorage.getItem('userId'); // Retrieve userId for doctorId
 
-  // Optional: Keep useEffect for cross-tab updates if needed
   useEffect(() => {
     const checkLoginStatus = () => {
-      // No need to set state here if isLoggedIn is computed on render
       console.log('localStorage changed in another tab:', window.localStorage.getItem('loggedIn'));
     };
     window.addEventListener('storage', checkLoginStatus);
@@ -32,12 +32,21 @@ const Navbar = () => {
         </div>
         <div className="hidden space-x-6 md:flex">
           <Link to="/" className="hover:text-darkGrayishBlue">Home</Link>
-          {isLoggedIn && (
+          {isLoggedIn && userType === 'User' && (
             <>
               <Link to="/reminder" className="hover:text-darkGrayishBlue">Reminder</Link>
               <Link to="/report" className="hover:text-darkGrayishBlue">Reports</Link>
               <Link to="/specialist" className="hover:text-darkGrayishBlue">Specialists</Link>
             </>
+          )}
+          {isLoggedIn && userType === 'Doctor' && (
+            <Link
+              to="/doctor-dashboard"
+              state={{ doctorId: userId }} // Pass doctorId via state
+              className="hover:text-darkGrayishBlue"
+            >
+              Doctor Dashboard
+            </Link>
           )}
           <Link to="/about-us" className="hover:text-darkGrayishBlue">About Us</Link>
         </div>
@@ -80,12 +89,20 @@ const Navbar = () => {
           }
         >
           <Link to="/">Home</Link>
-          {isLoggedIn && (
+          {isLoggedIn && userType === 'User' && (
             <>
               <Link to="/reminder">Reminder</Link>
               <Link to="/report">Reports</Link>
               <Link to="/specialist">Specialists</Link>
             </>
+          )}
+          {isLoggedIn && userType === 'Doctor' && (
+            <Link
+              to="/doctor-dashboard"
+              state={{ doctorId: userId }} // Pass doctorId via state for mobile menu
+            >
+              Doctor Dashboard
+            </Link>
           )}
           <Link to="/about-us">About Us</Link>
           {isLoggedIn ? (

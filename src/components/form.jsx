@@ -25,55 +25,46 @@ export default function Form() {
     };
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  // In Form.jsx, update handleSubmit for login
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSuccess('');
 
-    try {
-      if (isLogin) {
-        console.log('Login attempt:', { email, password });
-        const response = await axios.post('http://localhost:5000/api/auth/login', {
-          email,
-          password,
-        });
-        console.log('Login response:', response.data);
-        const { user } = response.data;
-
-        window.localStorage.setItem('loggedIn', 'true');
-        window.localStorage.setItem('userType', 'User');
-        window.localStorage.setItem('userId', user.id);
-
-        setSuccess('Login successful!');
-        console.log('localStorage after login:', window.localStorage.getItem('userId'));
-        navigate('/');
-      } else {
-        console.log('Signup attempt:', { email, password });
-        const response = await axios.post('http://localhost:5000/api/auth/signup', {
-          email,
-          password,
-        });
-        console.log('Signup response:', response.data);
-        const { user } = response.data;
-
-        window.localStorage.setItem('loggedIn', 'true');
-        window.localStorage.setItem('userType', 'User');
-        window.localStorage.setItem('userId', user.id);
-
-        setSuccess(`Signup successful! User ID: ${user.id}`);
-        setIsLogin(true);
-        navigate('/report');
-      }
-    } catch (err) {
-      console.error('Error:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
+  try {
+    if (isLogin) {
+      const response = await axios.post('http://localhost:5000/api/auth/login', {
+        email,
+        password,
       });
-      setError(err.response?.data?.message || 'An error occurred');
-    }
-  };
+      const { user } = response.data;
 
+      window.localStorage.setItem('loggedIn', 'true');
+      window.localStorage.setItem('userType', user.userType); // Store actual userType from DB
+      window.localStorage.setItem('userId', user.id);
+
+      setSuccess('Login successful!');
+      navigate(user.userType === 'Doctor' ? '/doctor-dashboard' : '/');
+    } else {
+      const response = await axios.post('http://localhost:5000/api/auth/signup', {
+        email,
+        password,
+        userType: 'User', // Default to User for signup, or allow selection
+      });
+      const { user } = response.data;
+
+      window.localStorage.setItem('loggedIn', 'true');
+      window.localStorage.setItem('userType', user.userType);
+      window.localStorage.setItem('userId', user.id);
+
+      setSuccess(`Signup successful! User ID: ${user.id}`);
+      setIsLogin(true);
+      navigate('/report');
+    }
+  } catch (err) {
+    setError(err.response?.data?.message || 'An error occurred');
+  }
+};
   const handleLogout = () => {
     window.localStorage.clear();
     setSuccess('Logged out successfully!');

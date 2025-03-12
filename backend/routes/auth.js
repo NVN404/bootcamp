@@ -94,4 +94,45 @@ router.get('/patients/:userId', async (req, res) => {
   }
 });
 
+// New Route: Add Patient to Doctor
+router.post('/doctor/:doctorId/add-patient', async (req, res) => {
+  const { doctorId } = req.params;
+  const { email, name, patientId } = req.body; // Patient's email, name, and unique patientId
+
+  try {
+    // Find the patient by email in the User collection
+    const patientUser = await User.findOne({ email });
+    if (!patientUser || patientUser.userType !== 'User') {
+      return res.status(404).json({ message: 'Patient not found or not a valid user' });
+    }
+
+    // Check if the doctor exists
+    const doctor = await User.findById(doctorId);
+    if (!doctor || doctor.userType !== 'Doctor') {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    // Check if the patient is already assigned to this doctor
+    const existingPatient = await Patient.findOne({ userId: patientUser._id, doctorId });
+    if (existingPatient) {
+      return res.status(400).json({ message: 'Patient already assigned to this doctor' });
+    }
+
+    // Create a new patient entry
+    const newPatient = new Patient({
+      userId: patientUser._id,
+      doctorId,
+      patientId: patientId || `PAT-${Date.now()}`, // Generate a unique patientId if not provided
+      name: name || patientUser.email.split('@')[0], // Default to email prefix if no name
+      medicines: [], // Start with an empty medicines array
+    });
+
+    await newPatient.save();
+    res.status(201).json({ message: 'Patient added successfully', patient: newPatient });
+  } catch (error) {
+    console.error('Add patient error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

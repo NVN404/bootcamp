@@ -1,35 +1,30 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Form from './components/form';
-import AboutUs from './components/AboutUs';
-import Specialist from './components/Specialist';
-import Reminder from './components/Reminder';
-import Home from './components/Home';
-import Report from './components/Report';
-import DoctorDashboard from './components/DoctorDashboard'; // New component
 import ProtectedRoute from './components/ProtectedRoute';
+import DoctorDashboard from './components/DoctorDashboard';
+import Form from './components/form';
+import Report from './components/Report';
+import Reminder from './components/Reminder';
+import Home from './components/Home'; // Example
+import AboutUs from './components/AboutUs'; // Example
 
 function App() {
-  const userId = window.localStorage.getItem('userId');
-  const userType = window.localStorage.getItem('userType'); // Assuming stored on login
-
   return (
-    <BrowserRouter>
+    <Router>
       <Navbar />
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about-us" element={<AboutUs />} />
         <Route path="/get-started" element={<Form />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/specialist" element={<Specialist />} />
+          <Route path="/report" element={<Report />} />
           <Route path="/reminder" element={<Reminder />} />
-          <Route path="/report" element={<Report userId={userId} />} />
-          {userType === 'Doctor' && (
-            <Route path="/doctor-dashboard" element={<DoctorDashboard doctorId={userId} />} />
-          )}
+          <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+          {/* Add other protected routes like /specialist if needed */}
         </Route>
+        <Route path="/" element={<Home />} />
+        <Route path="/about-us" element={<AboutUs />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
