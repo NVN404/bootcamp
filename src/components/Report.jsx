@@ -28,7 +28,7 @@ const Report = ({ userId }) => {
         console.log('API Response:', response.data);
         const patients = response.data;
 
-        if (!patients || patients.length === 0) {
+        if (!patients|| patients.length === 0 ) {
           console.log('No patient found');
           setError('No patient data found for this user');
           return;
@@ -77,7 +77,7 @@ const Report = ({ userId }) => {
       fetchPatientData();
     } else {
       console.log('No userId provided');
-      setError('No user ID provided');
+      setError('No user ID provided!');
     }
   }, [userId]);
 
@@ -100,7 +100,7 @@ const Report = ({ userId }) => {
   console.log('Rendering with chartData:', chartData, 'error:', error);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
       <h2 className="text-2xl font-bold mb-6 text-center">Medication Frequency Report</h2>
       {chartData ? (
         <div className="w-full max-w-4xl bg-white p-6 rounded-lg shadow-lg">
