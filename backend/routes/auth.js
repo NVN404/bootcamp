@@ -4,9 +4,9 @@ const { User, Patient } = require('../models/user');
 
 const router = express.Router();
 
-// Signup Route (No seeding)
+// Signup Route
 router.post('/signup', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, userType } = req.body;
 
   try {
     const existingUser = await User.findOne({ email });
@@ -15,12 +15,12 @@ router.post('/signup', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword });
+    const user = new User({ email, password: hashedPassword, userType: userType || 'User' });
     await user.save();
 
     res.status(201).json({
       message: 'Signup successful',
-      user: { id: user._id, email: user.email }, // Return userId
+      user: { id: user._id, email: user.email, userType: user.userType },
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
 
     res.status(200).json({
       message: 'Successfully logged in',
-      user: { email: user.email, id: user._id },
+      user: { email: user.email, id: user._id, userType: user.userType },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -53,7 +53,37 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Patient Data Route
+// Get Doctor’s Patients
+router.get('/doctor-patients/:doctorId', async (req, res) => {
+  try {
+    const patients = await Patient.find({ doctorId: req.params.doctorId });
+    res.json(patients);
+  } catch (error) {
+    console.error('Doctor patients error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update Patient Medicines
+router.put('/patients/:patientId/medicines', async (req, res) => {
+  const { medicines } = req.body;
+
+  try {
+    const patient = await Patient.findById(req.params.patientId);
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    patient.medicines = medicines; // Replace entire medicines array
+    await patient.save();
+    res.json({ message: 'Medicines updated', patient });
+  } catch (error) {
+    console.error('Update medicines error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Existing Patient Data Route (for Report.jsx)
 router.get('/patients/:userId', async (req, res) => {
   try {
     const patients = await Patient.find({ userId: req.params.userId });

@@ -6,9 +6,13 @@ import Specialist from './components/Specialist';
 import Reminder from './components/Reminder';
 import Home from './components/Home';
 import Report from './components/Report';
+import DoctorDashboard from './components/DoctorDashboard'; // New component
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
+  const userId = window.localStorage.getItem('userId');
+  const userType = window.localStorage.getItem('userType'); // Assuming stored on login
+
   return (
     <BrowserRouter>
       <Navbar />
@@ -19,7 +23,10 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/specialist" element={<Specialist />} />
           <Route path="/reminder" element={<Reminder />} />
-          <Route path="/report" element={<Report userId={window.localStorage.getItem('userId')} />} />
+          <Route path="/report" element={<Report userId={userId} />} />
+          {userType === 'Doctor' && (
+            <Route path="/doctor-dashboard" element={<DoctorDashboard doctorId={userId} />} />
+          )}
         </Route>
       </Routes>
     </BrowserRouter>
