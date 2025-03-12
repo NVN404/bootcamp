@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Add useEffect
 import axios from 'axios';
 import Footer from './Footer';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,19 @@ export default function Form() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+
+  // Clear localStorage on window close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      window.localStorage.clear();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,14 +40,12 @@ export default function Form() {
         console.log('Login response:', response.data);
         const { user } = response.data;
 
-        // Store userId and other data in localStorage
         window.localStorage.setItem('loggedIn', 'true');
         window.localStorage.setItem('userType', 'User');
-        window.localStorage.setItem('userId', user.id); // Store userId
+        window.localStorage.setItem('userId', user.id);
 
         setSuccess('Login successful!');
         console.log('localStorage after login:', window.localStorage.getItem('userId'));
-
         navigate('/');
       } else {
         console.log('Signup attempt:', { email, password });
@@ -45,14 +56,13 @@ export default function Form() {
         console.log('Signup response:', response.data);
         const { user } = response.data;
 
-        // Store userId in localStorage after signup
         window.localStorage.setItem('loggedIn', 'true');
         window.localStorage.setItem('userType', 'User');
         window.localStorage.setItem('userId', user.id);
 
         setSuccess(`Signup successful! User ID: ${user.id}`);
-        setIsLogin(true); // Switch to login mode
-        navigate('/report'); // Navigate to report page
+        setIsLogin(true);
+        navigate('/report');
       }
     } catch (err) {
       console.error('Error:', {
@@ -62,6 +72,14 @@ export default function Form() {
       });
       setError(err.response?.data?.message || 'An error occurred');
     }
+  };
+
+  const handleLogout = () => {
+    window.localStorage.clear();
+    setSuccess('Logged out successfully!');
+    setEmail('');
+    setPassword('');
+    navigate('/');
   };
 
   return (
@@ -131,6 +149,16 @@ export default function Form() {
             </button>
           </div>
         </form>
+        {window.localStorage.getItem('loggedIn') === 'true' && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={handleLogout}
+              className="active:scale-[.98] active:duration-75 transition-all hover:scale-[1.01] ease-in-out transform py-4 bg-brightRed rounded-xl text-white font-bold text-lg"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
       <Footer />
     </div>
