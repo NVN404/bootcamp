@@ -1,7 +1,7 @@
-// src/components/Report.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
+import { useLocation } from 'react-router-dom'; // Import useLocation
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,9 +14,13 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const Report = ({ userId }) => {
-  const [chartData, setChartData] = useState(null); // Single chart object instead of array
+const Report = () => {
+  const [chartData, setChartData] = useState(null);
   const [error, setError] = useState('');
+  const location = useLocation(); // Access navigation state
+
+  // Get userId from state or fall back to localStorage
+  const userId = location.state?.userId || window.localStorage.getItem('userId');
 
   useEffect(() => {
     console.log('useEffect triggered with userId:', userId);
@@ -28,7 +32,7 @@ const Report = ({ userId }) => {
         console.log('API Response:', response.data);
         const patients = response.data;
 
-        if (!patients|| patients.length === 0 ) {
+        if (!patients || patients.length === 0) {
           console.log('No patient found');
           setError('No patient data found for this user');
           return;
@@ -45,15 +49,15 @@ const Report = ({ userId }) => {
         console.log('Frequencies:', frequencies);
 
         const data = {
-          labels: medicines, // X-axis: medicine names
+          labels: medicines,
           datasets: [
             {
               label: `Medicine Frequency for ${patient.patientId}`,
-              data: frequencies, // Y-axis: frequency values
+              data: frequencies,
               backgroundColor: [
-                'rgba(54, 162, 235, 0.5)',  // Aspirin
-                'rgba(75, 192, 192, 0.5)',  // Paracetamol
-                'rgba(255, 99, 132, 0.5)',  // Dolo650
+                'rgba(54, 162, 235, 0.5)', // Aspirin
+                'rgba(75, 192, 192, 0.5)', // Paracetamol
+                'rgba(255, 99, 132, 0.5)', // Dolo650
               ],
               borderColor: [
                 'rgba(54, 162, 235, 1)',
@@ -77,7 +81,7 @@ const Report = ({ userId }) => {
       fetchPatientData();
     } else {
       console.log('No userId provided');
-      setError('No user ID provided!');
+      setError('No user ID provided! Please log in.');
     }
   }, [userId]);
 
