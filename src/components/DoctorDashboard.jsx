@@ -38,13 +38,18 @@ const DoctorDashboard = () => {
         `http://localhost:5000/api/auth/doctor/${doctorId}/add-patient`,
         newPatient
       );
-      setPatients([...patients, response.data.patient]); // Add new patient to the list
+      setPatients([...patients, response.data.patient]);
       setSuccessMessage(response.data.message);
-      setNewPatient({ email: '', name: '', patientId: '' }); // Reset form
+      setNewPatient({ email: '', name: '', patientId: '' });
     } catch (error) {
       console.error('Error adding patient:', error);
       setError(error.response?.data?.message || 'Error adding patient');
     }
+  };
+
+  const handleManageReminders = (patientId) => {
+    // Store the active Patient _id in localStorage for the patient to use
+    window.localStorage.setItem('activePatientId', patientId);
   };
 
   return (
@@ -122,8 +127,9 @@ const DoctorDashboard = () => {
                   </Link>
                   <Link
                     to={`/reminder`}
-                    state={{ patientId: patient.userId, isDoctor: true }}
+                    state={{ patientId: patient._id, isDoctor: true }}
                     className="text-brightRed hover:underline"
+                    onClick={() => handleManageReminders(patient._id)} // Store patientId on click
                   >
                     Manage Reminders
                   </Link>

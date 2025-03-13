@@ -6,8 +6,9 @@ import DoctorDashboard from './components/DoctorDashboard';
 import Form from './components/form';
 import Report from './components/Report';
 import Reminder from './components/Reminder';
-import Home from './components/Home'; // Example
-import AboutUs from './components/AboutUs'; // Example
+import Home from './components/Home'; 
+import AboutUs from './components/AboutUs'; 
+import Specialist from './components/Specialist'; 
 
 function App() {
   return (
@@ -19,6 +20,8 @@ function App() {
           <Route path="/report" element={<Report />} />
           <Route path="/reminder" element={<Reminder />} />
           <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+          <Route path="/specialist" element={<Specialist />} />
+
           {/* Add other protected routes like /specialist if needed */}
         </Route>
         <Route path="/" element={<Home />} />

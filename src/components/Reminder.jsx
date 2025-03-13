@@ -7,29 +7,49 @@ import axios from 'axios';
 const Reminder = () => {
   const location = useLocation();
   const { patientId, isDoctor = false } = location.state || {};
+  const userId = window.localStorage.getItem('userId');
+  const storedPatientId = window.localStorage.getItem('activePatientId'); // Get stored patientId
+  const initialPatientId = isDoctor ? patientId : storedPatientId || null; // Use stored ID for patient view
   const [medicines, setMedicines] = useState([]);
   const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', time: '', frequency: 0 });
+  const [error, setError] = useState('');
+  const [activePatientId, setActivePatientId] = useState(initialPatientId);
 
   useEffect(() => {
-    console.log('Reminder State:', { patientId, isDoctor });
+    console.log('Reminder State:', { patientId, isDoctor, userId, activePatientId });
     const fetchMedicines = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/auth/patients/${patientId}`);
-        const patient = response.data[0];
+        let response;
+        if (isDoctor && activePatientId) {
+          // Doctor view: Fetch by Patient _id
+          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+        } else if (activePatientId) {
+          // Patient view: Use activePatientId if available
+          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+        } else {
+          // Patient view: Fallback to latest Patient document
+          response = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`);
+          setActivePatientId(response.data._id);
+          window.localStorage.setItem('activePatientId', response.data._id); // Store for future use
+        }
+        const patient = response.data;
         if (patient && patient.medicines) {
           const updatedMedicines = patient.medicines.map(med => ({
             ...med,
             timeLeft: calculateTimeLeft(med.time),
           }));
           setMedicines(updatedMedicines);
+        } else {
+          setError('No medicines found for this patient');
         }
       } catch (error) {
         console.error('Error fetching medicines:', error);
+        setError('Failed to fetch medicines');
       }
     };
 
-    if (patientId) fetchMedicines();
-  }, [patientId]);
+    if (isDoctor ? activePatientId : (userId || activePatientId)) fetchMedicines();
+  }, [activePatientId, isDoctor, userId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,7 +70,6 @@ const Reminder = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Define calculateTimeLeft
   const calculateTimeLeft = (time) => {
     const now = new Date();
     const [hours, minutes] = time.split(':').map(Number);
@@ -60,7 +79,6 @@ const Reminder = () => {
     return Math.max(0, Math.floor((reminderTime - now) / 1000));
   };
 
-  // Define formatTimeLeft
   const formatTimeLeft = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -68,7 +86,6 @@ const Reminder = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Define addMedicine
   const addMedicine = async () => {
     if (!newMedicine.name || !newMedicine.dose || !newMedicine.time || !newMedicine.frequency) {
       alert('Please fill all fields');
@@ -81,27 +98,32 @@ const Reminder = () => {
     ];
     setMedicines(updatedMedicines);
     setNewMedicine({ name: '', dose: '', time: '', frequency: 0 });
+    setError('');
 
     try {
-      await axios.put(`http://localhost:5000/api/auth/patients/${patientId}/medicines`, {
-        medicines: updatedMedicines,
-      });
+      const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
+      await axios.put(endpoint, { medicines: updatedMedicines });
+      console.log('Medicine added successfully');
     } catch (error) {
       console.error('Error adding medicine:', error);
+      setError('Failed to add medicine');
+      setMedicines(medicines);
     }
   };
 
-  // Define removeMedicine
   const removeMedicine = async (index) => {
     const updatedMedicines = medicines.filter((_, i) => i !== index);
     setMedicines(updatedMedicines);
+    setError('');
 
     try {
-      await axios.put(`http://localhost:5000/api/auth/patients/${patientId}/medicines`, {
-        medicines: updatedMedicines,
-      });
+      const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
+      await axios.put(endpoint, { medicines: updatedMedicines });
+      console.log('Medicine removed successfully');
     } catch (error) {
       console.error('Error removing medicine:', error);
+      setError('Failed to remove medicine');
+      setMedicines(medicines);
     }
   };
 
@@ -110,6 +132,7 @@ const Reminder = () => {
       <div className="min-h-screen from-brightRed-100 via-purple-100 to-pink-100 flex items-center justify-center p-6 back">
         <div className="rounded-2xl shadow-2xl p-8 w-full max-w-3xl">
           <h1 className="text-4xl font-bold text-center text-brightRed mb-8">Medicine Reminder</h1>
+          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
           <div>
             <h2 className="text-2xl font-semibold text-brightRed mb-4">Medicine Schedule</h2>

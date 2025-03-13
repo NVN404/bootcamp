@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
-import { useLocation } from 'react-router-dom'; // Import useLocation
+import { useLocation } from 'react-router-dom';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,39 +14,59 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+// Function to generate random colors for chart bars
+const generateColors = (count) => {
+  const colors = [];
+  for (let i = 0; i < count; i++) {
+    const r = Math.floor(Math.random() * 255);
+    const g = Math.floor(Math.random() * 255);
+    const b = Math.floor(Math.random() * 255);
+    colors.push(`rgba(${r}, ${g}, ${b}, 0.5)`); // Background color with opacity
+  }
+  return colors;
+};
+
 const Report = () => {
   const [chartData, setChartData] = useState(null);
   const [error, setError] = useState('');
-  const location = useLocation(); // Access navigation state
+  const location = useLocation();
 
   // Get userId from state or fall back to localStorage
   const userId = location.state?.userId || window.localStorage.getItem('userId');
+  const activePatientId = window.localStorage.getItem('activePatientId');
 
   useEffect(() => {
-    console.log('useEffect triggered with userId:', userId);
+    console.log('useEffect triggered with userId:', userId, 'activePatientId:', activePatientId);
 
     const fetchPatientData = async () => {
       try {
-        console.log('Fetching data for userId:', userId);
-        const response = await axios.get(`http://localhost:5000/api/auth/patients/${userId}`);
-        console.log('API Response:', response.data);
-        const patients = response.data;
+        console.log('Fetching data for userId/activePatientId:', userId, activePatientId);
+        let response;
+        if (activePatientId) {
+          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+        } else {
+          response = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`);
+          window.localStorage.setItem('activePatientId', response.data._id);
+        }
+        const patient = response.data;
 
-        if (!patients || patients.length === 0) {
-          console.log('No patient found');
-          setError('No patient data found for this user');
+        if (!patient || !patient.medicines || patient.medicines.length === 0) {
+          console.log('No patient or medicines found');
+          setError('No medicines found for this patient');
           return;
         }
 
-        // Since we expect only one patient, take the first one
-        const patient = patients[0];
         console.log('Patient:', patient);
 
-        const medicines = ['Aspirin', 'Paracetamol', 'Dolo650'];
-        const frequencies = medicines.map((medicine) =>
-          patient.medicines.find((m) => m.name === medicine)?.frequency || 0
+        // Dynamically get the list of medicines and their frequencies
+        const medicines = patient.medicines.map((med) => med.name);
+        const frequencies = patient.medicines.map((med) => med.frequency || 0);
+
+        // Generate colors dynamically based on the number of medicines
+        const backgroundColors = generateColors(medicines.length);
+        const borderColors = backgroundColors.map((color) =>
+          color.replace('0.5', '1') // Increase opacity for border
         );
-        console.log('Frequencies:', frequencies);
 
         const data = {
           labels: medicines,
@@ -54,16 +74,8 @@ const Report = () => {
             {
               label: `Medicine Frequency for ${patient.patientId}`,
               data: frequencies,
-              backgroundColor: [
-                'rgba(54, 162, 235, 0.5)', // Aspirin
-                'rgba(75, 192, 192, 0.5)', // Paracetamol
-                'rgba(255, 99, 132, 0.5)', // Dolo650
-              ],
-              borderColor: [
-                'rgba(54, 162, 235, 1)',
-                'rgba(75, 192, 192, 1)',
-                'rgba(255, 99, 132, 1)',
-              ],
+              backgroundColor: backgroundColors,
+              borderColor: borderColors,
               borderWidth: 1,
             },
           ],
@@ -77,13 +89,16 @@ const Report = () => {
       }
     };
 
-    if (userId) {
-      fetchPatientData();
+    if (userId || activePatientId) {
+      fetchPatientData(); // Initial fetch
+      // Set up polling to check for updates every 10 seconds
+      const interval = setInterval(fetchPatientData, 10000);
+      return () => clearInterval(interval);
     } else {
       console.log('No userId provided');
       setError('No user ID provided! Please log in.');
     }
-  }, [userId]);
+  }, [userId, activePatientId]);
 
   const chartOptions = {
     scales: {
