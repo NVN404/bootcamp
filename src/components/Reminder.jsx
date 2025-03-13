@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { FaBell } from 'react-icons/fa';
+import { useLocation } from 'react-router-dom';
 import Footer from './Footer';
 import axios from 'axios';
 
-const Reminder = ({ patientId, isDoctor = false }) => {
+const Reminder = () => {
+  const location = useLocation();
+  const { patientId, isDoctor = false } = location.state || {};
   const [medicines, setMedicines] = useState([]);
   const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', time: '', frequency: 0 });
 
   useEffect(() => {
+    console.log('Reminder State:', { patientId, isDoctor });
     const fetchMedicines = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/api/auth/patients/${patientId}`);
-        const patient = response.data[0]; // Assuming one patient per userId
+        const patient = response.data[0];
         if (patient && patient.medicines) {
           const updatedMedicines = patient.medicines.map(med => ({
             ...med,
@@ -46,6 +50,7 @@ const Reminder = ({ patientId, isDoctor = false }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Define calculateTimeLeft
   const calculateTimeLeft = (time) => {
     const now = new Date();
     const [hours, minutes] = time.split(':').map(Number);
@@ -55,6 +60,7 @@ const Reminder = ({ patientId, isDoctor = false }) => {
     return Math.max(0, Math.floor((reminderTime - now) / 1000));
   };
 
+  // Define formatTimeLeft
   const formatTimeLeft = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -62,6 +68,7 @@ const Reminder = ({ patientId, isDoctor = false }) => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Define addMedicine
   const addMedicine = async () => {
     if (!newMedicine.name || !newMedicine.dose || !newMedicine.time || !newMedicine.frequency) {
       alert('Please fill all fields');
@@ -84,6 +91,7 @@ const Reminder = ({ patientId, isDoctor = false }) => {
     }
   };
 
+  // Define removeMedicine
   const removeMedicine = async (index) => {
     const updatedMedicines = medicines.filter((_, i) => i !== index);
     setMedicines(updatedMedicines);
