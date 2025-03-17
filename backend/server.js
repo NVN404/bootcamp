@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const path = require('path');
+const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
 
 const app = express();
 
@@ -10,6 +11,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Clerk Middleware for Authentication
+app.use(ClerkExpressWithAuth({
+  clerkSecretKey: 'sk_test_WmNplRBUeT47dn0vPRVqGx5tlLzhp6FJ2EDkNJmKDZ', // Replace with your Clerk Secret Key
+}));
 
 // MongoDB Connection
 const mongoURI = 'mongodb://127.0.0.1:27017/yoyo';

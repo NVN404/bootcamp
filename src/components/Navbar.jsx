@@ -1,26 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import companyLogo from '../assets/images/logo-med.jpeg';
 
 const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);
   const navigate = useNavigate();
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
 
-  // Check login status and userType from localStorage on every render
-  const isLoggedIn = window.localStorage.getItem('loggedIn') === 'true';
-  const userType = window.localStorage.getItem('userType');
-  const userId = window.localStorage.getItem('userId'); // Retrieve userId for doctorId
+  const userType = user?.publicMetadata?.userType || 'User'; // Ensure correct retrieval
+  const userId = user?.id;
 
   useEffect(() => {
-    const checkLoginStatus = () => {
-      console.log('localStorage changed in another tab:', window.localStorage.getItem('loggedIn'));
-    };
-    window.addEventListener('storage', checkLoginStatus);
-    return () => window.removeEventListener('storage', checkLoginStatus);
-  }, []);
+    console.log('Navbar - User Type:', userType); // Debug userType
+  }, [userType]);
 
-  const handleLogout = () => {
-    window.localStorage.clear();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/get-started');
   };
 
@@ -32,17 +29,17 @@ const Navbar = () => {
         </div>
         <div className="hidden space-x-6 md:flex">
           <Link to="/" className="hover:text-darkGrayishBlue">Home</Link>
-          {isLoggedIn && userType === 'User' && (
+          {isSignedIn && userType === 'User' && (
             <>
               <Link to="/reminder" className="hover:text-darkGrayishBlue">Reminder</Link>
               <Link to="/report" className="hover:text-darkGrayishBlue">Reports</Link>
               <Link to="/specialist" className="hover:text-darkGrayishBlue">Specialists</Link>
             </>
           )}
-          {isLoggedIn && userType === 'Doctor' && (
+          {isSignedIn && userType === 'Doctor' && (
             <Link
               to="/doctor-dashboard"
-              state={{ doctorId: userId }} // Pass doctorId via state
+              state={{ doctorId: userId }}
               className="hover:text-darkGrayishBlue"
             >
               Doctor Dashboard
@@ -51,7 +48,7 @@ const Navbar = () => {
           <Link to="/about-us" className="hover:text-darkGrayishBlue">About Us</Link>
         </div>
         <div>
-          {isLoggedIn ? (
+          {isSignedIn ? (
             <button
               onClick={handleLogout}
               className="hidden p-3 px-6 pt-2 text-white bg-brightRed rounded-full baseline hover:bg-brightRedLight md:block"
@@ -89,23 +86,20 @@ const Navbar = () => {
           }
         >
           <Link to="/">Home</Link>
-          {isLoggedIn && userType === 'User' && (
+          {isSignedIn && userType === 'User' && (
             <>
               <Link to="/reminder">Reminder</Link>
               <Link to="/report">Reports</Link>
               <Link to="/specialist">Specialists</Link>
             </>
           )}
-          {isLoggedIn && userType === 'Doctor' && (
-            <Link
-              to="/doctor-dashboard"
-              state={{ doctorId: userId }} // Pass doctorId via state for mobile menu
-            >
+          {isSignedIn && userType === 'Doctor' && (
+            <Link to="/doctor-dashboard" state={{ doctorId: userId }}>
               Doctor Dashboard
             </Link>
           )}
           <Link to="/about-us">About Us</Link>
-          {isLoggedIn ? (
+          {isSignedIn ? (
             <button onClick={handleLogout}>Logout</button>
           ) : (
             <Link to="/get-started">Get Started</Link>

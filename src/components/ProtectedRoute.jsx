@@ -1,10 +1,10 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 
 function ProtectedRoute() {
-  const isLoggedIn = window.localStorage.getItem('loggedIn') === 'true';
-  console.log('ProtectedRoute - isLoggedIn:', isLoggedIn);
-  return isLoggedIn ? <Outlet /> : <Navigate to="/get-started" />;
+  const { isSignedIn } = useUser();
+  return isSignedIn ? <Outlet /> : <Navigate to="/get-started" />;
 }
 
 export default ProtectedRoute;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
 import { useLocation } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,8 +33,8 @@ const Report = () => {
   const [chartData, setChartData] = useState(null);
   const [error, setError] = useState('');
   const location = useLocation();
-
-  const userId = location.state?.userId || window.localStorage.getItem('userId');
+  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
+  const userId = location.state?.userId || user?.id; // Use user.id instead of localStorage
   const activePatientId = window.localStorage.getItem('activePatientId');
 
   useEffect(() => {
@@ -63,14 +64,14 @@ const Report = () => {
         setIntakeData(intakes);
 
         // Prepare chart data
-        const medicines = patient.medicines.map(med => med.name);
-        const frequencies = medicines.map(medName => {
-          const relevantIntakes = intakes.filter(intake => intake.medicineName === medName);
+        const medicines = patient.medicines.map((med) => med.name);
+        const frequencies = medicines.map((medName) => {
+          const relevantIntakes = intakes.filter((intake) => intake.medicineName === medName);
           return relevantIntakes.reduce((sum, intake) => sum + intake.frequency, 0);
         });
 
         const backgroundColors = generateColors(medicines.length);
-        const borderColors = backgroundColors.map(color => color.replace('0.5', '1'));
+        const borderColors = backgroundColors.map((color) => color.replace('0.5', '1'));
 
         const data = {
           labels: medicines,

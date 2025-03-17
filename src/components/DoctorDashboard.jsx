@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 
 const DoctorDashboard = () => {
   const { state } = useLocation();
-  const doctorId = state?.doctorId || window.localStorage.getItem('userId');
+  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
+  const doctorId = state?.doctorId || user?.id; // Use user.id instead of localStorage
   const [patients, setPatients] = useState([]);
   const [error, setError] = useState('');
   const [newPatient, setNewPatient] = useState({ email: '', name: '', patientId: '' });
@@ -129,7 +131,7 @@ const DoctorDashboard = () => {
                     to={`/reminder`}
                     state={{ patientId: patient._id, isDoctor: true }}
                     className="text-brightRed hover:underline"
-                    onClick={() => handleManageReminders(patient._id)} // Store patientId on click
+                    onClick={() => handleManageReminders(patient._id)}
                   >
                     Manage Reminders
                   </Link>

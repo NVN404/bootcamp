@@ -1,76 +1,48 @@
-import * as React from 'react';
-import { useState, useEffect } from 'react'; // Add useEffect
-import axios from 'axios';
+import React, { useState } from 'react';
+import { SignIn, SignUp, useUser, useClerk } from '@clerk/clerk-react';
 import Footer from './Footer';
 import { useNavigate } from 'react-router-dom';
 
 export default function Form() {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [selectedUserType, setSelectedUserType] = useState('User');
+  const { user, isLoaded } = useUser(); // Add isLoaded to ensure user data is ready
+  const { signOut, client } = useClerk();
   const navigate = useNavigate();
 
-  // Clear localStorage on window close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      window.localStorage.clear();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-
-  // In Form.jsx, update handleSubmit for login
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
-
-  try {
-    if (isLogin) {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        email,
-        password,
-      });
-      const { user } = response.data;
-
-      window.localStorage.setItem('loggedIn', 'true');
-      window.localStorage.setItem('userType', user.userType); // Store actual userType from DB
-      window.localStorage.setItem('userId', user.id);
-
-      setSuccess('Login successful!');
-      navigate(user.userType === 'Doctor' ? '/doctor-dashboard' : '/');
-    } else {
-      const response = await axios.post('http://localhost:5000/api/auth/signup', {
-        email,
-        password,
-        userType: 'User', // Default to User for signup, or allow selection
-      });
-      const { user } = response.data;
-
-      window.localStorage.setItem('loggedIn', 'true');
-      window.localStorage.setItem('userType', user.userType);
-      window.localStorage.setItem('userId', user.id);
-
-      setSuccess(`Signup successful! User ID: ${user.id}`);
-      setIsLogin(true);
-      navigate('/report');
-    }
-  } catch (err) {
-    setError(err.response?.data?.message || 'An error occurred');
-  }
-};
-  const handleLogout = () => {
-    window.localStorage.clear();
-    setSuccess('Logged out successfully!');
-    setEmail('');
-    setPassword('');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
+  };
+
+  // Set userType after signup and redirect
+  const handleSignUpComplete = async () => {
+    if (!isLoaded || !user) {
+      console.error('User not loaded yet');
+      return;
+    }
+    try {
+      await client.users.updateUser(user.id, {
+        publicMetadata: { userType: selectedUserType },
+      });
+      // Force refresh of user data
+      await client.users.getUser(user.id); // Optional: Ensure metadata is synced
+      console.log('User Metadata after signup:', user.publicMetadata);
+      navigate(selectedUserType === 'Doctor' ? '/doctor-dashboard' : '/');
+    } catch (error) {
+      console.error('Error updating user metadata:', error);
+    }
+  };
+
+  // Redirect after sign-in based on userType
+  const handleSignInComplete = () => {
+    if (!isLoaded || !user) {
+      console.error('User not loaded yet');
+      return;
+    }
+    const userType = user.publicMetadata?.userType || 'User';
+    console.log('User Type on sign-in:', userType);
+    navigate(userType === 'Doctor' ? '/doctor-dashboard' : '/');
   };
 
   return (
@@ -80,67 +52,41 @@ const handleSubmit = async (e) => {
           {isLogin ? 'Welcome Back' : 'Create an Account'}
         </h1>
         <p className="font-medium text-lg text-gray-500 mt-4">
-          {isLogin ? 'Welcome back! Please enter your details.' : 'Sign up to get started!'}
+          {isLogin ? 'Welcome back! Please sign in.' : 'Sign up to get started!'}
         </p>
-        {error && <p className="text-red-500 mt-4">{error}</p>}
-        {success && <p className="text-green-500 mt-4">{success}</p>}
-        <form onSubmit={handleSubmit} className="mt-8">
-          <div className="flex flex-col">
-            <label className="text-lg font-medium">Email</label>
-            <input
-              className="w-full border-2 border-gray-100 rounded-xl p-4 mt-1 bg-transparent"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex flex-col mt-4">
-            <label className="text-lg font-medium">Password</label>
-            <input
-              className="w-full border-2 border-gray-100 rounded-xl p-4 mt-1 bg-transparent"
-              placeholder="Enter your password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {isLogin && (
-            <div className="mt-8 flex justify-between items-center">
-              <div>
-                <input type="checkbox" id="remember" />
-                <label className="ml-2 font-medium text-base" htmlFor="remember">
-                  Remember for 30 days
-                </label>
+        <div className="mt-8">
+          {isLogin ? (
+            <SignIn afterSignInUrl="/" onSignIn={handleSignInComplete} />
+          ) : (
+            <>
+              <div className="mb-4">
+                <label className="block text-lg font-medium text-gray-700">Account Type</label>
+                <select
+                  value={selectedUserType}
+                  onChange={(e) => setSelectedUserType(e.target.value)}
+                  className="w-full p-2 border-2 border-gray-100 rounded-xl mt-1 bg-transparent"
+                >
+                  <option value="User">User</option>
+                  <option value="Doctor">Doctor</option>
+                </select>
               </div>
-              <button type="button" className="font-medium text-base text-violet-500">
-                Forgot password
-              </button>
-            </div>
+              <SignUp afterSignUpUrl="/" onSignUp={handleSignUpComplete} />
+            </>
           )}
-          <div className="mt-8 flex flex-col gap-y-4">
-            <button
-              type="submit"
-              className="active:scale-[.98] active:duration-75 transition-all hover:scale-[1.01] ease-in-out transform py-4 bg-brightRed rounded-xl text-white font-bold text-lg"
-            >
-              {isLogin ? 'Sign in' : 'Sign up'}
-            </button>
-          </div>
-          <div className="mt-8 flex justify-center items-center">
-            <p className="font-medium text-base">
-              {isLogin ? "Don't have an account?" : 'Already have an account?'}
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="ml-2 font-medium text-base text-violet-500"
-            >
-              {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
-          </div>
-        </form>
-        {window.localStorage.getItem('loggedIn') === 'true' && (
+        </div>
+        <div className="mt-8 flex justify-center items-center">
+          <p className="font-medium text-base">
+            {isLogin ? "Don't have an account?" : 'Already have an account?'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsLogin(!isLogin)}
+            className="ml-2 font-medium text-base text-violet-500"
+          >
+            {isLogin ? 'Sign up' : 'Sign in'}
+          </button>
+        </div>
+        {user && (
           <div className="mt-8 flex justify-center">
             <button
               onClick={handleLogout}

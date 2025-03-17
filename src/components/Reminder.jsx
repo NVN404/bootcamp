@@ -3,18 +3,20 @@ import { FaBell } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 import Footer from './Footer';
 import axios from 'axios';
+import { useUser } from '@clerk/clerk-react';
 
 const Reminder = () => {
   const location = useLocation();
   const { patientId, isDoctor = false } = location.state || {};
-  const userId = window.localStorage.getItem('userId');
+  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
+  const userId = user?.id; // Use user.id instead of localStorage
   const storedPatientId = window.localStorage.getItem('activePatientId');
   const initialPatientId = isDoctor ? patientId : storedPatientId || null;
   const [medicines, setMedicines] = useState([]);
   const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', time: '', frequency: 0 });
   const [error, setError] = useState('');
   const [activePatientId, setActivePatientId] = useState(initialPatientId);
-  const [alarmTriggered, setAlarmTriggered] = useState(null); // Track which medicine's alarm is active
+  const [alarmTriggered, setAlarmTriggered] = useState(null);
 
   useEffect(() => {
     console.log('Reminder State:', { patientId, isDoctor, userId, activePatientId });
@@ -32,7 +34,7 @@ const Reminder = () => {
         }
         const patient = response.data;
         if (patient && patient.medicines) {
-          const updatedMedicines = patient.medicines.map(med => ({
+          const updatedMedicines = patient.medicines.map((med) => ({
             ...med,
             timeLeft: calculateTimeLeft(med.time),
           }));
@@ -56,7 +58,6 @@ const Reminder = () => {
           if (med.timeLeft > 0) {
             const newTimeLeft = med.timeLeft - 1;
             if (newTimeLeft === 0 && !isDoctor) {
-              // Trigger alarm for patient view only
               setAlarmTriggered(med.name);
             }
             return { ...med, timeLeft: newTimeLeft };
@@ -92,8 +93,7 @@ const Reminder = () => {
         medicineName,
         taken,
       });
-      setAlarmTriggered(null); // Clear alarm
-      // Reset timeLeft for the next reminder
+      setAlarmTriggered(null);
       setMedicines((prev) =>
         prev.map((med) =>
           med.name === medicineName ? { ...med, timeLeft: calculateTimeLeft(med.time) } : med

@@ -1,60 +1,18 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const { User, Patient, MedicineIntake } = require('../models/user');
 
 const router = express.Router();
 
-// Signup Route
-router.post('/signup', async (req, res) => {
-  const { email, password, userType } = req.body;
-
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword, userType: userType || 'User' });
-    await user.save();
-
-    res.status(201).json({
-      message: 'Signup successful',
-      user: { id: user._id, email: user.email, userType: user.userType },
-    });
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ message: 'Server error' });
+// Middleware to check if user is authenticated
+const requireAuth = (req, res, next) => {
+  if (!req.auth || !req.auth.userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
-});
-
-// Login Route
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-
-    res.status(200).json({
-      message: 'Successfully logged in',
-      user: { email: user.email, id: user._id, userType: user.userType },
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+  next();
+};
 
 // Get Doctor’s Patients
-router.get('/doctor-patients/:doctorId', async (req, res) => {
+router.get('/doctor-patients/:doctorId', requireAuth, async (req, res) => {
   try {
     const patients = await Patient.find({ doctorId: req.params.doctorId });
     res.json(patients);
@@ -65,15 +23,13 @@ router.get('/doctor-patients/:doctorId', async (req, res) => {
 });
 
 // Update Patient Medicines
-router.put('/patients/:patientId/medicines', async (req, res) => {
+router.put('/patients/:patientId/medicines', requireAuth, async (req, res) => {
   const { medicines } = req.body;
-
   try {
     const patient = await Patient.findById(req.params.patientId);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-
     patient.medicines = medicines;
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
@@ -84,7 +40,7 @@ router.put('/patients/:patientId/medicines', async (req, res) => {
 });
 
 // Existing Patient Data Route (for Report.jsx)
-router.get('/patients/:userId', async (req, res) => {
+router.get('/patients/:userId', requireAuth, async (req, res) => {
   try {
     const patients = await Patient.find({ userId: req.params.userId });
     res.json(patients);
@@ -95,26 +51,22 @@ router.get('/patients/:userId', async (req, res) => {
 });
 
 // Add Patient to Doctor
-router.post('/doctor/:doctorId/add-patient', async (req, res) => {
+router.post('/doctor/:doctorId/add-patient', requireAuth, async (req, res) => {
   const { doctorId } = req.params;
   const { email, name, patientId } = req.body;
-
   try {
     const patientUser = await User.findOne({ email });
     if (!patientUser || patientUser.userType !== 'User') {
       return res.status(404).json({ message: 'Patient not found or not a valid user' });
     }
-
     const doctor = await User.findById(doctorId);
     if (!doctor || doctor.userType !== 'Doctor') {
       return res.status(404).json({ message: 'Doctor not found' });
     }
-
     const existingPatient = await Patient.findOne({ userId: patientUser._id, doctorId });
     if (existingPatient) {
       return res.status(400).json({ message: 'Patient already assigned to this doctor' });
     }
-
     const newPatient = new Patient({
       userId: patientUser._id,
       doctorId,
@@ -122,7 +74,6 @@ router.post('/doctor/:doctorId/add-patient', async (req, res) => {
       name: name || patientUser.email.split('@')[0],
       medicines: [],
     });
-
     await newPatient.save();
     res.status(201).json({ message: 'Patient added successfully', patient: newPatient });
   } catch (error) {
@@ -132,7 +83,7 @@ router.post('/doctor/:doctorId/add-patient', async (req, res) => {
 });
 
 // Fetch Patient by _id
-router.get('/patients/by-id/:patientId', async (req, res) => {
+router.get('/patients/by-id/:patientId', requireAuth, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.patientId);
     if (!patient) {
@@ -146,15 +97,13 @@ router.get('/patients/by-id/:patientId', async (req, res) => {
 });
 
 // Update Medicines by userId
-router.put('/patients/by-user/:userId/medicines', async (req, res) => {
+router.put('/patients/by-user/:userId/medicines', requireAuth, async (req, res) => {
   const { medicines } = req.body;
-
   try {
     const patient = await Patient.findOne({ userId: req.params.userId });
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-
     patient.medicines = medicines;
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
@@ -165,10 +114,9 @@ router.put('/patients/by-user/:userId/medicines', async (req, res) => {
 });
 
 // Fetch Latest Patient by userId
-router.get('/patients/latest/:userId', async (req, res) => {
+router.get('/patients/latest/:userId', requireAuth, async (req, res) => {
   try {
-    const patient = await Patient.findOne({ userId: req.params.userId })
-      .sort({ updatedAt: -1 });
+    const patient = await Patient.findOne({ userId: req.params.userId }).sort({ updatedAt: -1 });
     if (!patient) {
       return res.status(404).json({ message: 'No patient data found' });
     }
@@ -179,28 +127,22 @@ router.get('/patients/latest/:userId', async (req, res) => {
   }
 });
 
-// New Route: Record Medicine Intake
-router.post('/medicine-intake', async (req, res) => {
+// Record Medicine Intake
+router.post('/medicine-intake', requireAuth, async (req, res) => {
   const { patientId, medicineName, taken } = req.body;
-
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of the day
-
-    // Find existing intake record for today
+    today.setHours(0, 0, 0, 0);
     let intake = await MedicineIntake.findOne({
       patientId,
       medicineName,
       date: { $gte: today, $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000) },
     });
-
     if (intake) {
-      // Update existing record
       intake.taken = taken;
       intake.frequency = taken ? intake.frequency + 1 : Math.max(0, intake.frequency - 1);
       await intake.save();
     } else {
-      // Create new record
       intake = new MedicineIntake({
         patientId,
         medicineName,
@@ -210,7 +152,6 @@ router.post('/medicine-intake', async (req, res) => {
       });
       await intake.save();
     }
-
     res.status(201).json({ message: 'Medicine intake recorded', intake });
   } catch (error) {
     console.error('Record medicine intake error:', error);
@@ -218,11 +159,10 @@ router.post('/medicine-intake', async (req, res) => {
   }
 });
 
-// New Route: Fetch Medicine Intake History
-router.get('/medicine-intake/:patientId', async (req, res) => {
+// Fetch Medicine Intake History
+router.get('/medicine-intake/:patientId', requireAuth, async (req, res) => {
   try {
-    const intakes = await MedicineIntake.find({ patientId: req.params.patientId })
-      .sort({ date: -1 });
+    const intakes = await MedicineIntake.find({ patientId: req.params.patientId }).sort({ date: -1 });
     res.json(intakes);
   } catch (error) {
     console.error('Fetch medicine intake error:', error);
