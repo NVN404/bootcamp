@@ -8,12 +8,13 @@ const Reminder = () => {
   const location = useLocation();
   const { patientId, isDoctor = false } = location.state || {};
   const userId = window.localStorage.getItem('userId');
-  const storedPatientId = window.localStorage.getItem('activePatientId'); // Get stored patientId
-  const initialPatientId = isDoctor ? patientId : storedPatientId || null; // Use stored ID for patient view
+  const storedPatientId = window.localStorage.getItem('activePatientId');
+  const initialPatientId = isDoctor ? patientId : storedPatientId || null;
   const [medicines, setMedicines] = useState([]);
   const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', time: '', frequency: 0 });
   const [error, setError] = useState('');
   const [activePatientId, setActivePatientId] = useState(initialPatientId);
+  const [alarmTriggered, setAlarmTriggered] = useState(null); // Track which medicine's alarm is active
 
   useEffect(() => {
     console.log('Reminder State:', { patientId, isDoctor, userId, activePatientId });
@@ -21,16 +22,13 @@ const Reminder = () => {
       try {
         let response;
         if (isDoctor && activePatientId) {
-          // Doctor view: Fetch by Patient _id
           response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
         } else if (activePatientId) {
-          // Patient view: Use activePatientId if available
           response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
         } else {
-          // Patient view: Fallback to latest Patient document
           response = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`);
           setActivePatientId(response.data._id);
-          window.localStorage.setItem('activePatientId', response.data._id); // Store for future use
+          window.localStorage.setItem('activePatientId', response.data._id);
         }
         const patient = response.data;
         if (patient && patient.medicines) {
@@ -57,8 +55,9 @@ const Reminder = () => {
         prev.map((med) => {
           if (med.timeLeft > 0) {
             const newTimeLeft = med.timeLeft - 1;
-            if (newTimeLeft === 0) {
-              alert(`Time to take ${med.name} (${med.dose})!`);
+            if (newTimeLeft === 0 && !isDoctor) {
+              // Trigger alarm for patient view only
+              setAlarmTriggered(med.name);
             }
             return { ...med, timeLeft: newTimeLeft };
           }
@@ -68,7 +67,7 @@ const Reminder = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isDoctor]);
 
   const calculateTimeLeft = (time) => {
     const now = new Date();
@@ -84,6 +83,26 @@ const Reminder = () => {
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleMedicineIntake = async (medicineName, taken) => {
+    try {
+      await axios.post('http://localhost:5000/api/auth/medicine-intake', {
+        patientId: activePatientId,
+        medicineName,
+        taken,
+      });
+      setAlarmTriggered(null); // Clear alarm
+      // Reset timeLeft for the next reminder
+      setMedicines((prev) =>
+        prev.map((med) =>
+          med.name === medicineName ? { ...med, timeLeft: calculateTimeLeft(med.time) } : med
+        )
+      );
+    } catch (error) {
+      console.error('Error recording medicine intake:', error);
+      setError('Failed to record medicine intake');
+    }
   };
 
   const addMedicine = async () => {
@@ -213,6 +232,31 @@ const Reminder = () => {
                 >
                   Add Medicine
                 </button>
+              </div>
+            </div>
+          )}
+
+          {alarmTriggered && !isDoctor && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h3 className="text-lg font-semibold mb-4">
+                  Time to take {alarmTriggered}!
+                </h3>
+                <p className="mb-4">Did you take the medicine?</p>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => handleMedicineIntake(alarmTriggered, true)}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => handleMedicineIntake(alarmTriggered, false)}
+                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                  >
+                    No
+                  </button>
+                </div>
               </div>
             </div>
           )}

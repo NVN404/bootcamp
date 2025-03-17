@@ -19,7 +19,7 @@ const patientSchema = new mongoose.Schema({
   patientId: { type: String, required: true },
   name: { type: String, required: true },
   medicines: [medicineSchema],
-  updatedAt: { type: Date, default: Date.now }, // Added updatedAt field
+  updatedAt: { type: Date, default: Date.now },
 });
 
 // Ensure updatedAt is updated on every save
@@ -28,7 +28,17 @@ patientSchema.pre('save', function (next) {
   next();
 });
 
+// New Schema for Medicine Intake History
+const medicineIntakeSchema = new mongoose.Schema({
+  patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
+  medicineName: { type: String, required: true },
+  date: { type: Date, required: true },
+  taken: { type: Boolean, required: true }, // Yes (true) or No (false)
+  frequency: { type: Number, default: 0 }, // Tracks daily frequency
+});
+
 const User = mongoose.model('User', userSchema);
 const Patient = mongoose.model('Patient', patientSchema);
+const MedicineIntake = mongoose.model('MedicineIntake', medicineIntakeSchema);
 
-module.exports = { User, Patient };
+module.exports = { User, Patient, MedicineIntake };

@@ -1,10 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { User, Patient } = require('../models/user');
+const { User, Patient, MedicineIntake } = require('../models/user');
 
 const router = express.Router();
 
-// Signup Route (No seeding)
+// Signup Route
 router.post('/signup', async (req, res) => {
   const { email, password, userType } = req.body;
 
@@ -94,7 +94,7 @@ router.get('/patients/:userId', async (req, res) => {
   }
 });
 
-// New Route: Add Patient to Doctor
+// Add Patient to Doctor
 router.post('/doctor/:doctorId/add-patient', async (req, res) => {
   const { doctorId } = req.params;
   const { email, name, patientId } = req.body;
@@ -164,17 +164,68 @@ router.put('/patients/by-user/:userId/medicines', async (req, res) => {
   }
 });
 
-// New Route: Fetch Latest Patient by userId
+// Fetch Latest Patient by userId
 router.get('/patients/latest/:userId', async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.params.userId })
-      .sort({ updatedAt: -1 }); // Sort by most recent update
+      .sort({ updatedAt: -1 });
     if (!patient) {
       return res.status(404).json({ message: 'No patient data found' });
     }
     res.json(patient);
   } catch (error) {
     console.error('Fetch latest patient error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// New Route: Record Medicine Intake
+router.post('/medicine-intake', async (req, res) => {
+  const { patientId, medicineName, taken } = req.body;
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of the day
+
+    // Find existing intake record for today
+    let intake = await MedicineIntake.findOne({
+      patientId,
+      medicineName,
+      date: { $gte: today, $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000) },
+    });
+
+    if (intake) {
+      // Update existing record
+      intake.taken = taken;
+      intake.frequency = taken ? intake.frequency + 1 : Math.max(0, intake.frequency - 1);
+      await intake.save();
+    } else {
+      // Create new record
+      intake = new MedicineIntake({
+        patientId,
+        medicineName,
+        date: today,
+        taken,
+        frequency: taken ? 1 : 0,
+      });
+      await intake.save();
+    }
+
+    res.status(201).json({ message: 'Medicine intake recorded', intake });
+  } catch (error) {
+    console.error('Record medicine intake error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// New Route: Fetch Medicine Intake History
+router.get('/medicine-intake/:patientId', async (req, res) => {
+  try {
+    const intakes = await MedicineIntake.find({ patientId: req.params.patientId })
+      .sort({ date: -1 });
+    res.json(intakes);
+  } catch (error) {
+    console.error('Fetch medicine intake error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
