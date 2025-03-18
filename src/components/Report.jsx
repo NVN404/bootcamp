@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
 import { useLocation } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react'; // Add useAuth
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,19 +33,29 @@ const Report = () => {
   const [chartData, setChartData] = useState(null);
   const [error, setError] = useState('');
   const location = useLocation();
-  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
-  const userId = location.state?.userId || user?.id; // Use user.id instead of localStorage
+  const { user } = useUser();
+  const { getToken } = useAuth(); // Add getToken for authentication
+  const userId = location.state?.userId || user?.id;
   const activePatientId = window.localStorage.getItem('activePatientId');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = await getToken(); // Get the Clerk token
+        if (!token) {
+          throw new Error('Failed to retrieve authentication token');
+        }
+
         // Fetch prescribed medicines
         let patientResponse;
         if (activePatientId) {
-          patientResponse = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+          patientResponse = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
         } else {
-          patientResponse = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`);
+          patientResponse = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           window.localStorage.setItem('activePatientId', patientResponse.data._id);
         }
         const patient = patientResponse.data;
@@ -58,7 +68,9 @@ const Report = () => {
         setPrescribedMedicines(patient.medicines);
 
         // Fetch medicine intake history
-        const intakeResponse = await axios.get(`http://localhost:5000/api/auth/medicine-intake/${activePatientId}`);
+        const intakeResponse = await axios.get(`http://localhost:5000/api/auth/medicine-intake/${activePatientId || patient._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const intakes = intakeResponse.data;
 
         setIntakeData(intakes);
@@ -89,7 +101,7 @@ const Report = () => {
         setChartData(data);
       } catch (error) {
         console.error('Fetch Error:', error.response || error.message);
-        setError('Error fetching patient data');
+        setError(error.response?.data?.message || 'Error fetching patient data');
       }
     };
 
@@ -100,7 +112,7 @@ const Report = () => {
     } else {
       setError('No user ID provided! Please log in.');
     }
-  }, [userId, activePatientId]);
+  }, [userId, activePatientId, getToken]); // Add getToken to dependencies
 
   const chartOptions = {
     scales: {

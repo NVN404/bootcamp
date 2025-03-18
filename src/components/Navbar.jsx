@@ -6,20 +6,44 @@ import companyLogo from '../assets/images/logo-med.jpeg';
 const Navbar = () => {
   const [toggleMenu, setToggleMenu] = useState(false);
   const navigate = useNavigate();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user, isLoaded } = useUser();
   const { signOut } = useClerk();
 
-  const userType = user?.publicMetadata?.userType || 'User'; // Ensure correct retrieval
+  const userType = user?.publicMetadata?.userType; // No default
   const userId = user?.id;
 
   useEffect(() => {
-    console.log('Navbar - User Type:', userType); // Debug userType
-  }, [userType]);
+    if (isLoaded) {
+      console.log('Navbar - Is Signed In:', isSignedIn);
+      console.log('Navbar - User:', user);
+      console.log('Navbar - Public Metadata:', user?.publicMetadata);
+      console.log('Navbar - User Type:', userType);
+      console.log('Navbar - User ID:', userId);
+    }
+  }, [isSignedIn, user, userType, userId, isLoaded]);
 
   const handleLogout = async () => {
     await signOut();
     navigate('/get-started');
   };
+
+  if (!isLoaded) {
+    return <div className='text-center'>Loading...</div>;
+  }
+
+  if (isSignedIn && !userType) {
+    return (
+      <div className="text-center p-6">
+        <p className="text-red-600">User type not set. Please contact support or set your user type.</p>
+        <button
+          onClick={handleLogout}
+          className="mt-4 p-2 px-4 text-white bg-brightRed rounded-full hover:bg-brightRedLight"
+        >
+          Logout
+        </button>
+      </div>
+    );
+  }
 
   return (
     <nav className="relative container mx-auto p-6">

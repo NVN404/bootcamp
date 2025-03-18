@@ -1,41 +1,38 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  userType: { type: String, enum: ['User', 'Doctor'], default: 'User' },
-});
-
-const medicineSchema = new mongoose.Schema({
+// Define a sub-schema for medicines
+const medicineSchema = new Schema({
   name: { type: String, required: true },
+  dose: { type: String, required: true },
+  time: { type: String, required: true },
   frequency: { type: Number, required: true },
-  dose: { type: String, default: '1 tablet' },
-  time: { type: String, default: '08:00' },
+  timeLeft: { type: Number, default: 0 } // Optional, since it's calculated client-side
 });
 
-const patientSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  patientId: { type: String, required: true },
+// Patient Schema
+const patientSchema = new Schema({
+  userId: { type: String, required: true },
+  doctorId: { type: String, required: true },
+  patientId: { type: String, unique: true },
   name: { type: String, required: true },
-  medicines: [medicineSchema],
-  updatedAt: { type: Date, default: Date.now },
-});
+  medicines: [medicineSchema], // Use the sub-schema here
+}, { timestamps: true });
 
-// Ensure updatedAt is updated on every save
-patientSchema.pre('save', function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-// New Schema for Medicine Intake History
-const medicineIntakeSchema = new mongoose.Schema({
-  patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
+// MedicineIntake Schema (unchanged)
+const medicineIntakeSchema = new Schema({
+  patientId: { type: String, required: true },
   medicineName: { type: String, required: true },
   date: { type: Date, required: true },
-  taken: { type: Boolean, required: true }, // Yes (true) or No (false)
-  frequency: { type: Number, default: 0 }, // Tracks daily frequency
-});
+  taken: { type: Boolean, required: true },
+  frequency: { type: Number, default: 0 },
+}, { timestamps: true });
+
+// User Schema (unchanged)
+const userSchema = new Schema({
+  email: { type: String, required: true, unique: true },
+  userType: { type: String, enum: ['Doctor', 'User'], required: true },
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 const Patient = mongoose.model('Patient', patientSchema);

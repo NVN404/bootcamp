@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { SignIn, SignUp, useUser, useClerk } from '@clerk/clerk-react';
+import { SignIn, SignUp, useUser, useClerk, useSignUp } from '@clerk/clerk-react';
 import Footer from './Footer';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 export default function Form() {
   const [isLogin, setIsLogin] = useState(true);
   const [selectedUserType, setSelectedUserType] = useState('User');
-  const { user, isLoaded } = useUser(); // Add isLoaded to ensure user data is ready
-  const { signOut, client } = useClerk();
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+  const { signUp, isLoaded: isSignUpLoaded } = useSignUp();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -15,26 +17,40 @@ export default function Form() {
     navigate('/');
   };
 
-  // Set userType after signup and redirect
   const handleSignUpComplete = async () => {
     if (!isLoaded || !user) {
       console.error('User not loaded yet');
       return;
     }
     try {
-      await client.users.updateUser(user.id, {
-        publicMetadata: { userType: selectedUserType },
-      });
-      // Force refresh of user data
-      await client.users.getUser(user.id); // Optional: Ensure metadata is synced
-      console.log('User Metadata after signup:', user.publicMetadata);
-      navigate(selectedUserType === 'Doctor' ? '/doctor-dashboard' : '/');
+      // Get the token from the active session
+      const token = await signUp.clerk.client.activeSessions[0]?.getToken();
+      if (!token) {
+        throw new Error('No session token available');
+      }
+
+      // Call backend to set userType
+      const response = await axios.post(
+        'http://localhost:5000/api/auth/set-user-type',
+        { userType: selectedUserType },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('Backend Response:', response.data);
+
+      // Redirect based on userType (no need to sign out and sign in again)
+      const userType = selectedUserType;
+      navigate(userType === 'Doctor' ? '/doctor-dashboard' : '/');
     } catch (error) {
-      console.error('Error updating user metadata:', error);
+      console.error('Error updating user type:', error);
     }
   };
 
-  // Redirect after sign-in based on userType
   const handleSignInComplete = () => {
     if (!isLoaded || !user) {
       console.error('User not loaded yet');
@@ -70,7 +86,10 @@ export default function Form() {
                   <option value="Doctor">Doctor</option>
                 </select>
               </div>
-              <SignUp afterSignUpUrl="/" onSignUp={handleSignUpComplete} />
+              <SignUp
+                afterSignUpUrl="/get-started"
+                onSignUp={handleSignUpComplete}
+              />
             </>
           )}
         </div>

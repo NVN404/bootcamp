@@ -3,13 +3,14 @@ import { FaBell } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 import Footer from './Footer';
 import axios from 'axios';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 
 const Reminder = () => {
   const location = useLocation();
   const { patientId, isDoctor = false } = location.state || {};
-  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
-  const userId = user?.id; // Use user.id instead of localStorage
+  const { user } = useUser();
+  const { getToken } = useAuth(); // Added useAuth for token retrieval
+  const userId = user?.id;
   const storedPatientId = window.localStorage.getItem('activePatientId');
   const initialPatientId = isDoctor ? patientId : storedPatientId || null;
   const [medicines, setMedicines] = useState([]);
@@ -22,13 +23,24 @@ const Reminder = () => {
     console.log('Reminder State:', { patientId, isDoctor, userId, activePatientId });
     const fetchMedicines = async () => {
       try {
+        const token = await getToken(); // Get the Clerk token
+        if (!token) {
+          throw new Error('Failed to retrieve authentication token');
+        }
+
         let response;
         if (isDoctor && activePatientId) {
-          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
         } else if (activePatientId) {
-          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`);
+          response = await axios.get(`http://localhost:5000/api/auth/patients/by-id/${activePatientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
         } else {
-          response = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`);
+          response = await axios.get(`http://localhost:5000/api/auth/patients/latest/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           setActivePatientId(response.data._id);
           window.localStorage.setItem('activePatientId', response.data._id);
         }
@@ -44,12 +56,12 @@ const Reminder = () => {
         }
       } catch (error) {
         console.error('Error fetching medicines:', error);
-        setError('Failed to fetch medicines');
+        setError(error.response?.data?.message || 'Failed to fetch medicines');
       }
     };
 
     if (isDoctor ? activePatientId : (userId || activePatientId)) fetchMedicines();
-  }, [activePatientId, isDoctor, userId]);
+  }, [activePatientId, isDoctor, userId, getToken]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -88,11 +100,12 @@ const Reminder = () => {
 
   const handleMedicineIntake = async (medicineName, taken) => {
     try {
-      await axios.post('http://localhost:5000/api/auth/medicine-intake', {
-        patientId: activePatientId,
-        medicineName,
-        taken,
-      });
+      const token = await getToken(); // Add token for this request
+      await axios.post(
+        'http://localhost:5000/api/auth/medicine-intake',
+        { patientId: activePatientId, medicineName, taken },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setAlarmTriggered(null);
       setMedicines((prev) =>
         prev.map((med) =>
@@ -120,13 +133,18 @@ const Reminder = () => {
     setError('');
 
     try {
+      const token = await getToken(); // Add token for this request
       const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
-      await axios.put(endpoint, { medicines: updatedMedicines });
+      await axios.put(
+        endpoint,
+        { medicines: updatedMedicines },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       console.log('Medicine added successfully');
     } catch (error) {
       console.error('Error adding medicine:', error);
       setError('Failed to add medicine');
-      setMedicines(medicines);
+      setMedicines(medicines); // Revert to previous state on error
     }
   };
 
@@ -136,13 +154,18 @@ const Reminder = () => {
     setError('');
 
     try {
+      const token = await getToken(); // Add token for this request
       const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
-      await axios.put(endpoint, { medicines: updatedMedicines });
+      await axios.put(
+        endpoint,
+        { medicines: updatedMedicines },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       console.log('Medicine removed successfully');
     } catch (error) {
       console.error('Error removing medicine:', error);
       setError('Failed to remove medicine');
-      setMedicines(medicines);
+      setMedicines(medicines); // Revert to previous state on error
     }
   };
 

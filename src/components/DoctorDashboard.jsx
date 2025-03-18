@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 
 const DoctorDashboard = () => {
   const { state } = useLocation();
-  const { user } = useUser(); // Use Clerk's useUser hook to get the current user
-  const doctorId = state?.doctorId || user?.id; // Use user.id instead of localStorage
+  const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
+  const doctorId = state?.doctorId || (isLoaded ? user?.id : null);
   const [patients, setPatients] = useState([]);
   const [error, setError] = useState('');
   const [newPatient, setNewPatient] = useState({ email: '', name: '', patientId: '' });
@@ -19,16 +20,28 @@ const DoctorDashboard = () => {
           setError('Doctor ID is not available');
           return;
         }
-        const response = await axios.get(`http://localhost:5000/api/auth/doctor-patients/${doctorId}`);
+        const token = await getToken();
+        if (!token) {
+          throw new Error('Failed to retrieve authentication token');
+        }
+        const response = await axios.get(`http://localhost:5000/api/auth/doctor-patients/${doctorId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         setPatients(response.data);
       } catch (error) {
-        console.error('Error fetching patients:', error);
-        setError('Error fetching patients');
+        console.error('Error fetching patients:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        setError(error.response?.data?.message || error.message || 'Error fetching patients');
       }
     };
 
     if (doctorId) fetchPatients();
-  }, [doctorId]);
+  }, [doctorId, getToken]);
 
   const handleAddPatient = async (e) => {
     e.preventDefault();
@@ -36,23 +49,42 @@ const DoctorDashboard = () => {
     setSuccessMessage('');
 
     try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Failed to retrieve authentication token');
+      }
+      console.log('Adding patient with data:', newPatient, 'for doctorId:', doctorId, 'token:', token);
       const response = await axios.post(
         `http://localhost:5000/api/auth/doctor/${doctorId}/add-patient`,
-        newPatient
+        newPatient,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        }
       );
       setPatients([...patients, response.data.patient]);
       setSuccessMessage(response.data.message);
       setNewPatient({ email: '', name: '', patientId: '' });
     } catch (error) {
-      console.error('Error adding patient:', error);
-      setError(error.response?.data?.message || 'Error adding patient');
+      console.error('Error adding patient:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      setError(error.response?.data?.message || error.message || 'Error adding patient');
     }
   };
 
   const handleManageReminders = (patientId) => {
-    // Store the active Patient _id in localStorage for the patient to use
     window.localStorage.setItem('activePatientId', patientId);
   };
+
+  if (!isLoaded) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
