@@ -9,21 +9,25 @@ const Reminder = () => {
   const location = useLocation();
   const { patientId, isDoctor = false } = location.state || {};
   const { user } = useUser();
-  const { getToken } = useAuth(); // Added useAuth for token retrieval
+  const { getToken } = useAuth();
   const userId = user?.id;
   const storedPatientId = window.localStorage.getItem('activePatientId');
   const initialPatientId = isDoctor ? patientId : storedPatientId || null;
   const [medicines, setMedicines] = useState([]);
-  const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', time: '', frequency: 0 });
+  const [newMedicine, setNewMedicine] = useState({ name: '', dose: '', times: [], frequency: 0 });
   const [error, setError] = useState('');
   const [activePatientId, setActivePatientId] = useState(initialPatientId);
   const [alarmTriggered, setAlarmTriggered] = useState(null);
+  const [noResponseCount, setNoResponseCount] = useState(0);
+  const [adviceMessage, setAdviceMessage] = useState('');
+
+  const audio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
 
   useEffect(() => {
     console.log('Reminder State:', { patientId, isDoctor, userId, activePatientId });
     const fetchMedicines = async () => {
       try {
-        const token = await getToken(); // Get the Clerk token
+        const token = await getToken();
         if (!token) {
           throw new Error('Failed to retrieve authentication token');
         }
@@ -48,7 +52,7 @@ const Reminder = () => {
         if (patient && patient.medicines) {
           const updatedMedicines = patient.medicines.map((med) => ({
             ...med,
-            timeLeft: calculateTimeLeft(med.time),
+            timeLeft: calculateNextTimeLeft(med.times),
           }));
           setMedicines(updatedMedicines);
         } else {
@@ -64,13 +68,14 @@ const Reminder = () => {
   }, [activePatientId, isDoctor, userId, getToken]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const timerInterval = setInterval(() => {
       setMedicines((prev) =>
         prev.map((med) => {
           if (med.timeLeft > 0) {
             const newTimeLeft = med.timeLeft - 1;
             if (newTimeLeft === 0 && !isDoctor) {
               setAlarmTriggered(med.name);
+              audio.play().catch(err => console.error('Audio play failed:', err));
             }
             return { ...med, timeLeft: newTimeLeft };
           }
@@ -79,19 +84,47 @@ const Reminder = () => {
       );
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [isDoctor]);
+    const promptInterval = setInterval(() => {
+      if (alarmTriggered && noResponseCount > 0) {
+        setNoResponseCount(prev => prev + 1);
+        audio.play().catch(err => console.error('Audio play failed:', err));
+      }
+    }, 60000);
 
-  const calculateTimeLeft = (time) => {
+    return () => {
+      clearInterval(timerInterval);
+      clearInterval(promptInterval);
+    };
+  }, [isDoctor, alarmTriggered, noResponseCount]);
+
+  const calculateNextTimeLeft = (times) => {
     const now = new Date();
-    const [hours, minutes] = time.split(':').map(Number);
-    const reminderTime = new Date(now);
-    reminderTime.setHours(hours, minutes, 0, 0);
-    if (reminderTime < now) reminderTime.setDate(reminderTime.getDate() + 1);
-    return Math.max(0, Math.floor((reminderTime - now) / 1000));
+    let nextTimeDiff = Infinity;
+
+    // Filter out invalid times and calculate the next valid time
+    const validTimes = times.filter(time => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return !isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+    });
+
+    if (validTimes.length === 0) return 0; // Default to 0 if no valid times
+
+    validTimes.forEach(time => {
+      const [hours, minutes] = time.split(':').map(Number);
+      const reminderTime = new Date(now);
+      reminderTime.setHours(hours, minutes, 0, 0);
+      if (reminderTime < now) reminderTime.setDate(reminderTime.getDate() + 1);
+      const timeDiff = reminderTime - now;
+      if (timeDiff < nextTimeDiff) {
+        nextTimeDiff = timeDiff;
+      }
+    });
+
+    return Math.max(0, Math.floor(nextTimeDiff / 1000));
   };
 
   const formatTimeLeft = (seconds) => {
+    if (!isFinite(seconds) || seconds < 0) return '00:00:00'; // Handle invalid inputs
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -100,16 +133,23 @@ const Reminder = () => {
 
   const handleMedicineIntake = async (medicineName, taken) => {
     try {
-      const token = await getToken(); // Add token for this request
+      const token = await getToken();
       await axios.post(
         'http://localhost:5000/api/auth/medicine-intake',
         { patientId: activePatientId, medicineName, taken },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setAlarmTriggered(null);
+      setNoResponseCount(0);
+      if (!taken) {
+        setAdviceMessage(`Please take ${medicineName} as soon as possible. Consult your doctor if needed.`);
+        setTimeout(() => setAdviceMessage(''), 30000);
+      }
       setMedicines((prev) =>
         prev.map((med) =>
-          med.name === medicineName ? { ...med, timeLeft: calculateTimeLeft(med.time) } : med
+          med.name === medicineName
+            ? { ...med, timeLeft: calculateNextTimeLeft(med.times) }
+            : med
         )
       );
     } catch (error) {
@@ -118,22 +158,40 @@ const Reminder = () => {
     }
   };
 
+  const handleFrequencyChange = (e) => {
+    const frequency = Number(e.target.value);
+    setNewMedicine((prev) => {
+      const times = Array.from({ length: Math.min(frequency, 3) }, (_, i) => prev.times[i] || '');
+      return { ...prev, frequency, times };
+    });
+  };
+
+  const handleTimeChange = (index, value) => {
+    setNewMedicine((prev) => {
+      const times = [...prev.times];
+      times[index] = value;
+      return { ...prev, times };
+    });
+  };
+
   const addMedicine = async () => {
-    if (!newMedicine.name || !newMedicine.dose || !newMedicine.time || !newMedicine.frequency) {
-      alert('Please fill all fields');
+    // Enhanced validation for times
+    const validTimes = newMedicine.times.filter(time => time && /^\d{2}:\d{2}$/.test(time));
+    if (!newMedicine.name || !newMedicine.dose || newMedicine.frequency <= 0 || validTimes.length < newMedicine.frequency) {
+      setError('Please fill all fields and provide valid times (HH:MM) for the frequency');
       return;
     }
 
     const updatedMedicines = [
       ...medicines,
-      { ...newMedicine, timeLeft: calculateTimeLeft(newMedicine.time) },
+      { ...newMedicine, timeLeft: calculateNextTimeLeft(newMedicine.times) },
     ];
     setMedicines(updatedMedicines);
-    setNewMedicine({ name: '', dose: '', time: '', frequency: 0 });
+    setNewMedicine({ name: '', dose: '', times: [], frequency: 0 });
     setError('');
 
     try {
-      const token = await getToken(); // Add token for this request
+      const token = await getToken();
       const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
       await axios.put(
         endpoint,
@@ -154,7 +212,7 @@ const Reminder = () => {
     setError('');
 
     try {
-      const token = await getToken(); // Add token for this request
+      const token = await getToken();
       const endpoint = `http://localhost:5000/api/auth/patients/${activePatientId}/medicines`;
       await axios.put(
         endpoint,
@@ -171,6 +229,11 @@ const Reminder = () => {
 
   return (
     <div>
+      {adviceMessage && (
+        <div className="bg-yellow-200 text-center p-4 text-red-600 font-semibold">
+          {adviceMessage}
+        </div>
+      )}
       <div className="min-h-screen from-brightRed-100 via-purple-100 to-pink-100 flex items-center justify-center p-6 back">
         <div className="rounded-2xl shadow-2xl p-8 w-full max-w-3xl">
           <h1 className="text-4xl font-bold text-center text-brightRed mb-8">Medicine Reminder</h1>
@@ -192,7 +255,7 @@ const Reminder = () => {
                       <div>
                         <p className="text-lg font-medium text-gray-800">{medicine.name}</p>
                         <p className="text-sm text-gray-600">Dose: {medicine.dose}</p>
-                        <p className="text-sm text-gray-600">Time: {medicine.time}</p>
+                        <p className="text-sm text-gray-600">Times: {medicine.times.join(', ')}</p>
                         <p className="text-sm text-gray-600">Frequency: {medicine.frequency}</p>
                       </div>
                     </div>
@@ -219,39 +282,43 @@ const Reminder = () => {
           </div>
 
           {isDoctor && (
-            <div className="mt-8">
+            <div className="mt-8 w-full max-w-4xl p-6 bg-white rounded-lg shadow-md">
               <h2 className="text-2xl font-semibold text-brightRed mb-4">Add Medicine</h2>
-              <div className="flex flex-col space-y-4">
+              <div className="space-y-4">
                 <input
                   type="text"
                   placeholder="Medicine Name"
                   value={newMedicine.name}
                   onChange={(e) => setNewMedicine({ ...newMedicine, name: e.target.value })}
-                  className="p-2 border rounded"
+                  className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Dose"
                   value={newMedicine.dose}
                   onChange={(e) => setNewMedicine({ ...newMedicine, dose: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input
-                  type="time"
-                  value={newMedicine.time}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, time: e.target.value })}
-                  className="p-2 border rounded"
+                  className="w-full p-2 border rounded"
                 />
                 <input
                   type="number"
                   placeholder="Frequency"
                   value={newMedicine.frequency}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, frequency: Number(e.target.value) })}
-                  className="p-2 border rounded"
+                  onChange={handleFrequencyChange}
+                  className="w-full p-2 border rounded"
                 />
+                {Array.from({ length: Math.min(newMedicine.frequency, 3) }).map((_, index) => (
+                  <input
+                    key={index}
+                    type="time"
+                    value={newMedicine.times[index] || ''}
+                    onChange={(e) => handleTimeChange(index, e.target.value)}
+                    className="w-full p-2 border rounded"
+                    placeholder={`Time ${index + 1}`}
+                  />
+                ))}
                 <button
                   onClick={addMedicine}
-                  className="bg-brightRed text-white p-2 rounded hover:bg-red-700"
+                  className="w-full p-2 bg-brightRed text-white rounded hover:bg-red-700"
                 >
                   Add Medicine
                 </button>
@@ -263,7 +330,7 @@ const Reminder = () => {
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
               <div className="bg-white p-6 rounded-lg shadow-lg">
                 <h3 className="text-lg font-semibold mb-4">
-                  Time to take {alarmTriggered}!
+                  Time to take {alarmTriggered}! (Prompt {noResponseCount + 1})
                 </h3>
                 <p className="mb-4">Did you take the medicine?</p>
                 <div className="flex space-x-4">

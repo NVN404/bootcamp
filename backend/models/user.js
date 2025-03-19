@@ -5,9 +5,9 @@ const Schema = mongoose.Schema;
 const medicineSchema = new Schema({
   name: { type: String, required: true },
   dose: { type: String, required: true },
-  time: { type: String, required: true },
+  times: { type: [String], required: true }, // Changed from 'time' to 'times' array
   frequency: { type: Number, required: true },
-  timeLeft: { type: Number, default: 0 } // Optional, since it's calculated client-side
+  timeLeft: { type: Number, default: 0 } // Optional, calculated client-side
 });
 
 // Patient Schema

@@ -1,30 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Bar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 import { useLocation } from 'react-router-dom';
-import { useUser, useAuth } from '@clerk/clerk-react'; // Add useAuth
+import { useUser, useAuth } from '@clerk/clerk-react';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// Function to generate colors for chart bars
+// Function to generate colors for chart lines (one color per medicine)
 const generateColors = (count) => {
   const colors = [];
   for (let i = 0; i < count; i++) {
     const r = Math.floor(Math.random() * 255);
     const g = Math.floor(Math.random() * 255);
     const b = Math.floor(Math.random() * 255);
-    colors.push(`rgba(${r}, ${g}, ${b}, 0.5)`);
+    colors.push(`rgba(${r}, ${g}, ${b}, 0.8)`); // Consistent color for each medicine
   }
   return colors;
+};
+
+// Function to get the last 30 days
+const getLast30Days = () => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    dates.push(date.toLocaleDateString('en-US', { day: 'numeric' }));
+  }
+  return dates;
 };
 
 const Report = () => {
@@ -34,7 +47,7 @@ const Report = () => {
   const [error, setError] = useState('');
   const location = useLocation();
   const { user } = useUser();
-  const { getToken } = useAuth(); // Add getToken for authentication
+  const { getToken } = useAuth();
   const userId = location.state?.userId || user?.id;
   const activePatientId = window.localStorage.getItem('activePatientId');
 
@@ -76,26 +89,34 @@ const Report = () => {
         setIntakeData(intakes);
 
         // Prepare chart data
-        const medicines = patient.medicines.map((med) => med.name);
-        const frequencies = medicines.map((medName) => {
-          const relevantIntakes = intakes.filter((intake) => intake.medicineName === medName);
-          return relevantIntakes.reduce((sum, intake) => sum + intake.frequency, 0);
+        const days = getLast30Days();
+        const colors = generateColors(patient.medicines.length);
+        const datasets = patient.medicines.map((med, index) => {
+          const dailyData = days.map(() => 0); // Initialize with zeros
+          intakes
+            .filter(intake => intake.medicineName === med.name)
+            .forEach(intake => {
+              const date = new Date(intake.date).toLocaleDateString('en-US', { day: 'numeric' });
+              const dayIndex = days.indexOf(date);
+              if (dayIndex !== -1) {
+                dailyData[dayIndex] += intake.frequency;
+              }
+            });
+
+          return {
+            label: med.name,
+            data: dailyData,
+            borderColor: colors[index],
+            backgroundColor: colors[index].replace('0.8', '0.2'),
+            fill: false,
+            tension: 0.1,
+            pointRadius: 3,
+          };
         });
 
-        const backgroundColors = generateColors(medicines.length);
-        const borderColors = backgroundColors.map((color) => color.replace('0.5', '1'));
-
         const data = {
-          labels: medicines,
-          datasets: [
-            {
-              label: `Medicine Intake Frequency for ${patient.patientId}`,
-              data: frequencies,
-              backgroundColor: backgroundColors,
-              borderColor: borderColors,
-              borderWidth: 1,
-            },
-          ],
+          labels: days,
+          datasets: datasets,
         };
 
         setChartData(data);
@@ -112,21 +133,22 @@ const Report = () => {
     } else {
       setError('No user ID provided! Please log in.');
     }
-  }, [userId, activePatientId, getToken]); // Add getToken to dependencies
+  }, [userId, activePatientId, getToken]);
 
   const chartOptions = {
     scales: {
       y: {
         beginAtZero: true,
-        title: { display: true, text: 'Total Frequency (Times Taken)' },
+        title: { display: true, text: 'Frequency (Taken)' },
+        stacked: false,
       },
       x: {
-        title: { display: true, text: 'Medicines' },
+        title: { display: true, text: 'Days of the Month (Last 30 Days)' },
       },
     },
     plugins: {
       legend: { position: 'top' },
-      title: { display: true, text: 'Patient Medication Intake Frequency' },
+      title: { display: true, text: 'Medicine Intake Frequency Over 30 Days' },
     },
   };
 
@@ -153,10 +175,10 @@ const Report = () => {
       </div>
 
       <div className="w-full max-w-4xl">
-        <h3 className="text-xl font-semibold mb-4">Medicine Intake Frequency Chart</h3>
+        <h3 className="text-xl font-semibold mb-4">Medicine Intake Trends (Last 30 Days)</h3>
         {chartData ? (
           <div className="bg-white p-6 rounded-lg shadow-lg">
-            <Bar data={chartData} options={chartOptions} />
+            <Line data={chartData} options={chartOptions} />
           </div>
         ) : error ? (
           <p className="text-center text-sm text-red-600">{error}</p>

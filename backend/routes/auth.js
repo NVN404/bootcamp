@@ -97,7 +97,7 @@ router.post('/doctor/:doctorId/add-patient', requireAuth, async (req, res) => {
   }
 });
 
-// ... (rest of the routes remain unchanged)
+// Update Patient Medicines
 router.put('/patients/:patientId/medicines', requireAuth, async (req, res) => {
   const { medicines } = req.body;
   try {
@@ -105,7 +105,7 @@ router.put('/patients/:patientId/medicines', requireAuth, async (req, res) => {
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    patient.medicines = medicines;
+    patient.medicines = medicines; // Directly use the array of medicines with 'times'
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
   } catch (error) {
@@ -114,6 +114,7 @@ router.put('/patients/:patientId/medicines', requireAuth, async (req, res) => {
   }
 });
 
+// Fetch Patients by userId
 router.get('/patients/:userId', requireAuth, async (req, res) => {
   try {
     const patients = await Patient.find({ userId: req.params.userId });
@@ -124,6 +125,7 @@ router.get('/patients/:userId', requireAuth, async (req, res) => {
   }
 });
 
+// Fetch Patient by _id
 router.get('/patients/by-id/:patientId', requireAuth, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.patientId);
@@ -137,6 +139,7 @@ router.get('/patients/by-id/:patientId', requireAuth, async (req, res) => {
   }
 });
 
+// Update Medicines by userId
 router.put('/patients/by-user/:userId/medicines', requireAuth, async (req, res) => {
   const { medicines } = req.body;
   try {
@@ -144,7 +147,7 @@ router.put('/patients/by-user/:userId/medicines', requireAuth, async (req, res) 
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    patient.medicines = medicines;
+    patient.medicines = medicines; // Directly use the array of medicines with 'times'
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
   } catch (error) {
@@ -153,6 +156,7 @@ router.put('/patients/by-user/:userId/medicines', requireAuth, async (req, res) 
   }
 });
 
+// Fetch Latest Patient by userId
 router.get('/patients/latest/:userId', requireAuth, async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.params.userId }).sort({ updatedAt: -1 });
@@ -166,6 +170,7 @@ router.get('/patients/latest/:userId', requireAuth, async (req, res) => {
   }
 });
 
+// Record Medicine Intake
 router.post('/medicine-intake', requireAuth, async (req, res) => {
   const { patientId, medicineName, taken } = req.body;
   try {
@@ -197,6 +202,7 @@ router.post('/medicine-intake', requireAuth, async (req, res) => {
   }
 });
 
+// Fetch Medicine Intake History
 router.get('/medicine-intake/:patientId', requireAuth, async (req, res) => {
   try {
     const intakes = await MedicineIntake.find({ patientId: req.params.patientId }).sort({ date: -1 });
