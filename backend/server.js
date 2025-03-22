@@ -8,11 +8,23 @@ const { clerkMiddleware } = require('@clerk/express');
 
 const app = express();
 
-// Configure CORS with credentials support
-app.use(cors({
-  origin: 'http://localhost:3000', // Frontend origin
-  credentials: true, // Allow credentials (cookies, authorization headers)
-}));
+// Configure CORS to allow multiple origins
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:8081'];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true, // Allow credentials (cookies, authorization headers)
+  })
+);
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
