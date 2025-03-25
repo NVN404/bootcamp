@@ -9,17 +9,15 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { ClerkProvider, useSignIn, useAuth, useClerk } from '@clerk/clerk-expo'; // Updated imports
+import { ClerkProvider, useSignIn, useAuth, useClerk } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Audio } from 'expo-av';
 import { LineChart } from 'react-native-chart-kit';
+import Icon from 'react-native-vector-icons/MaterialIcons'; // Added for chatbot icon
 
-// Replace with your Clerk Publishable Key from the Clerk dashboard
 const CLERK_PUBLISHABLE_KEY = 'pk_test_bWVhc3VyZWQtYnVycm8tMzIuY2xlcmsuYWNjb3VudHMuZGV2JA';
-
-// Replace with your computer's IP address
-const BASE_URL = 'http://192.168.56.1:5000'; // Update with your IP address
+const BASE_URL = 'http://192.168.72.237:5000';
 
 // Function to get the last 30 days for the report chart
 const getLast30Days = () => {
@@ -46,9 +44,9 @@ const generateColors = (count) => {
 };
 
 const App = () => {
-  // State for screen navigation (without React Navigation)
+  // State for screen navigation
   const [currentScreen, setCurrentScreen] = useState('Login'); // 'Login', 'Reminder', 'Report'
-  const [user, setUser] = useState(null); // User state for authentication
+  const [user, setUser] = useState(null);
 
   // Login state
   const [email, setEmail] = useState('');
@@ -71,9 +69,14 @@ const App = () => {
   const [chartData, setChartData] = useState(null);
   const [reportError, setReportError] = useState('');
 
-  // Clerk hooks for authentication
+  // Chatbot state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+
+  // Clerk hooks
   const { signIn } = useSignIn();
-  const { userId, getToken, isLoaded } = useAuth(); // Use useAuth instead of useUser
+  const { userId, getToken, isLoaded } = useAuth();
   const { signOut } = useClerk();
 
   // Load user data on mount
@@ -82,11 +85,11 @@ const App = () => {
       if (isLoaded && userId) {
         const userData = {
           id: userId,
-          userType: 'User', // Assuming patient app
+          userType: 'User',
         };
         setUser(userData);
         await AsyncStorage.setItem('userId', userData.id);
-        setCurrentScreen('Reminder'); // Go to Reminder screen after login
+        setCurrentScreen('Reminder');
       }
     };
     loadUser();
@@ -103,23 +106,16 @@ const App = () => {
     loadSound();
 
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      if (sound) sound.unloadAsync();
     };
   }, []);
 
-  // Play audio when needed
   const playSound = async () => {
-    if (sound) {
-      await sound.playAsync();
-    }
+    if (sound) await sound.playAsync();
   };
 
   const stopSound = async () => {
-    if (sound) {
-      await sound.stopAsync();
-    }
+    if (sound) await sound.stopAsync();
   };
 
   // Handle login
@@ -159,11 +155,11 @@ const App = () => {
     }
   };
 
-  // Reminder logic (updated to match website)
+  // Reminder logic
   useEffect(() => {
     const fetchMedicines = async () => {
       try {
-        const token = await getToken(); // Get token using useAuth
+        const token = await getToken();
         let response;
         const storedActivePatientId = await AsyncStorage.getItem('activePatientId');
         if (storedActivePatientId) {
@@ -303,7 +299,7 @@ const App = () => {
     }
   };
 
-  // Report logic (updated to match website)
+  // Report logic
   useEffect(() => {
     const fetchReportData = async () => {
       try {
@@ -377,7 +373,31 @@ const App = () => {
     }
   }, [userId, currentScreen]);
 
-  // Render functions for each "screen"
+  // Chatbot logic
+  const sendMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = { text: chatInput, sender: 'user' };
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput('');
+
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        `${BASE_URL}/api/auth/chatbot`,
+        { message: chatInput, userId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const botMessage = { text: response.data.reply, sender: 'bot' };
+      setChatMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Chatbot error:', error);
+      const errorMessage = { text: 'Sorry, I couldn’t process that.', sender: 'bot' };
+      setChatMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  // Render functions
   const renderLoginScreen = () => (
     <View style={styles.container}>
       <View style={styles.formContainer}>
@@ -545,17 +565,72 @@ const App = () => {
     </View>
   );
 
+  const renderChatInterface = () => (
+    <Modal visible={isChatOpen} animationType="slide" transparent>
+      <View style={styles.chatModalOverlay}>
+        <View style={styles.chatContainer}>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTitle}>Medicine Assistant</Text>
+            <TouchableOpacity onPress={() => setIsChatOpen(false)}>
+              <Icon name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={chatMessages}
+            renderItem={({ item }) => (
+              <View
+                style={[
+                  styles.chatMessage,
+                  item.sender === 'user' ? styles.userMessage : styles.botMessage,
+                ]}
+              >
+                <Text style={styles.chatMessageText}>{item.text}</Text>
+              </View>
+            )}
+            keyExtractor={(item, index) => index.toString()}
+            contentContainerStyle={styles.chatList}
+          />
+          <View style={styles.chatInputContainer}>
+            <TextInput
+              style={styles.chatInput}
+              value={chatInput}
+              onChangeText={setChatInput}
+              placeholder="Ask about your medicines..."
+              onSubmitEditing={sendMessage}
+            />
+            <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+              <Icon name="send" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Main render
   return (
     <View style={styles.container}>
       {currentScreen === 'Login' && renderLoginScreen()}
       {currentScreen === 'Reminder' && renderReminderScreen()}
       {currentScreen === 'Report' && renderReportScreen()}
+      
+      {/* Floating Chatbot Button */}
+      {currentScreen !== 'Login' && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setIsChatOpen(true)}
+        >
+          <Icon name="chat" size={24} color="#FFF" />
+        </TouchableOpacity>
+      )}
+
+      {/* Chat Interface */}
+      {renderChatInterface()}
     </View>
   );
 };
 
-// Styles (same as before, consolidated)
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -777,9 +852,91 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '600',
   },
+  fab: {
+    position: 'absolute',
+    bottom: 80,
+    right: 16,
+    backgroundColor: '#FF4040',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  chatContainer: {
+    backgroundColor: '#FFF',
+    height: '70%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FF4040',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  chatTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  chatList: {
+    flexGrow: 1,
+  },
+  chatMessage: {
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 4,
+    maxWidth: '80%',
+  },
+  userMessage: {
+    backgroundColor: '#FF4040',
+    alignSelf: 'flex-end',
+  },
+  botMessage: {
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'flex-start',
+  },
+  chatMessageText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 8,
+  },
+  chatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 20,
+    padding: 10,
+    marginRight: 8,
+  },
+  sendButton: {
+    backgroundColor: '#FF4040',
+    padding: 10,
+    borderRadius: 20,
+  },
 });
 
-// Wrap the app with ClerkProvider
 export default function AppWrapper() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>

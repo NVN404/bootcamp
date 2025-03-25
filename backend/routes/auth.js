@@ -3,6 +3,7 @@ const express = require('express');
 const { User, Patient, MedicineIntake } = require('../models/user');
 const { clerkMiddleware } = require('@clerk/express');
 const { Clerk } = require('@clerk/clerk-sdk-node');
+const axios = require('axios');
 
 const router = express.Router();
 
@@ -105,7 +106,7 @@ router.put('/patients/:patientId/medicines', requireAuth, async (req, res) => {
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    patient.medicines = medicines; // Directly use the array of medicines with 'times'
+    patient.medicines = medicines;
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
   } catch (error) {
@@ -147,7 +148,7 @@ router.put('/patients/by-user/:userId/medicines', requireAuth, async (req, res) 
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    patient.medicines = medicines; // Directly use the array of medicines with 'times'
+    patient.medicines = medicines;
     await patient.save();
     res.json({ message: 'Medicines updated', patient });
   } catch (error) {
@@ -210,6 +211,43 @@ router.get('/medicine-intake/:patientId', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Fetch medicine intake error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Chatbot Endpoint with Google Gemini API
+router.post('/chatbot', requireAuth, async (req, res) => {
+  const { message, userId } = req.body;
+
+  try {
+    // Fetch user’s patient data for context
+    const patient = await Patient.findOne({ userId }).sort({ updatedAt: -1 });
+    const medicines = patient ? patient.medicines : [];
+    const context = `You are a medical assistant for a patient with the following medicines: ${JSON.stringify(
+      medicines.map((m) => ({ name: m.name, times: m.times, dose: m.dose }))
+    )}. Answer questions based on this data or general medical knowledge.`;
+
+    // Call Google Gemini API
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        contents: [
+          {
+            parts: [
+              { text: `${context}\n\nUser question: ${message}` },
+            ],
+          },
+        ],
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    const reply = response.data.candidates[0].content.parts[0].text || 'Sorry, I couldn’t generate a response.';
+    res.json({ reply });
+  } catch (error) {
+    console.error('Chatbot error:', error.response ? error.response.data : error.message);
+    res.status(500).json({ reply: 'Sorry, something went wrong.' });
   }
 });
 
