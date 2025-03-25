@@ -9,7 +9,7 @@ const { clerkMiddleware } = require('@clerk/express');
 const app = express();
 
 // Configure CORS to allow multiple origins
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:8081'];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:8081','http://10.0.2.2:8081'];
 app.use(
   cors({
     origin: (origin, callback) => {
